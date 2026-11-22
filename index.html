@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>রংপুর টিউটর</title>
+  <meta name="description" content="রংপুরে যাচাইকৃত টিউটর খুঁজুন অথবা টিউশন পোস্ট করুন।">
+  <meta name="theme-color" content="#0B4A3C">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#top" aria-label="রংপুর টিউটর হোম">
+      <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#F2A93B"/><path d="M32 16 8 27l24 11 24-11z" fill="#0B4A3C"/><path d="M18 34v10c0 4 6 8 14 8s14-4 14-8V34l-14 6z" fill="#0B4A3C"/></svg>
+      <span>রংপুর টিউটর</span>
+    </a>
+    <nav class="nav" aria-label="প্রধান মেনু">
+      <a href="#tutors">টিউটর খুঁজুন</a>
+      <a href="#request">টিউশন চাই</a>
+      <a href="#join">টিউটর হোন</a>
+    </nav>
+  </div>
+</header>
+
+<div id="demoBanner" class="demo" hidden>
+  ডেমো মোড: এখনো ডেটাবেস যুক্ত নেই। নমুনা তথ্য দেখানো হচ্ছে, আর আপনার পাঠানো ফর্ম শুধু এই ব্রাউজারে থাকবে।
+</div>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap">
+      <h1>রংপুরে পছন্দের টিউটর খুঁজুন</h1>
+      <p class="lead">যাচাইকৃত টিউটর, আপনার এলাকাতেই। প্রথমে ট্রায়াল ক্লাস, তারপর সিদ্ধান্ত।</p>
+      <ul class="trust">
+        <li>পরিচয় যাচাই করা টিউটর</li>
+        <li>ট্রায়াল ক্লাসের সুযোগ</li>
+        <li>বাংলায় সহজ ব্যবহার</li>
+      </ul>
+
+      <form id="searchForm" class="card search" aria-label="টিউটর খোঁজার ফর্ম">
+        <div class="grid3">
+          <label>ক্লাস
+            <select id="fClass"><option value="">সব ক্লাস</option></select>
+          </label>
+          <label>বিষয়
+            <select id="fSubject"><option value="">সব বিষয়</option></select>
+          </label>
+          <label>এলাকা
+            <select id="fArea"><option value="">সব এলাকা</option></select>
+          </label>
+        </div>
+        <button type="submit" class="btn primary">টিউটর খুঁজুন</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="tutors" class="block">
+    <div class="wrap">
+      <div class="head">
+        <h2>টিউটর</h2>
+        <span id="tutorCount" class="muted"></span>
+      </div>
+      <div id="tutorList" class="list" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="posts" class="block alt">
+    <div class="wrap">
+      <div class="head">
+        <h2>খোলা টিউশন</h2>
+        <span class="muted">টিউটররা আবেদন করতে পারবেন</span>
+      </div>
+      <div id="postList" class="list" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="request" class="block">
+    <div class="wrap narrow">
+      <h2>টিউশন চাই</h2>
+      <p class="muted">তথ্য দিন। আমরা যাচাইকৃত টিউটরের তালিকা পাঠাব। আপনার ফোন নম্বর সবার সামনে দেখানো হয় না।</p>
+      <form id="requestForm" class="card form" novalidate>
+        <label>আপনার নাম
+          <input name="guardian_name" required maxlength="80" autocomplete="name" placeholder="যেমন: রফিকুল ইসলাম">
+        </label>
+        <label>ফোন নম্বর
+          <input name="phone" required inputmode="tel" maxlength="14" autocomplete="tel" placeholder="01XXXXXXXXX">
+        </label>
+        <div class="grid2">
+          <label>ক্লাস
+            <select name="class_level" id="rClass" required><option value="">বাছাই করুন</option></select>
+          </label>
+          <label>বিষয়
+            <select name="subject" id="rSubject" required><option value="">বাছাই করুন</option></select>
+          </label>
+        </div>
+        <div class="grid2">
+          <label>এলাকা
+            <select name="area" id="rArea" required><option value="">বাছাই করুন</option></select>
+          </label>
+          <label>মাসিক বাজেট (টাকা)
+            <input name="budget" inputmode="numeric" maxlength="6" placeholder="যেমন: ২৫০০">
+          </label>
+        </div>
+        <label>অতিরিক্ত তথ্য
+          <textarea name="note" id="rNote" rows="3" maxlength="300" placeholder="সপ্তাহে কত দিন, কোন সময়, ছাত্র না ছাত্রী টিউটর চান ইত্যাদি"></textarea>
+        </label>
+        <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button type="submit" class="btn primary">টিউশন পোস্ট করুন</button>
+        <p class="status" id="requestStatus" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+
+  <section id="join" class="block alt">
+    <div class="wrap narrow">
+      <h2>টিউটর হিসেবে যুক্ত হন</h2>
+      <p class="muted">যুক্ত হওয়া বিনা খরচে। আমরা আপনার পরিচয় যাচাই করার পর প্রোফাইল দেখানো হবে।</p>
+      <form id="joinForm" class="card form" novalidate>
+        <label>নাম
+          <input name="name" required maxlength="80" autocomplete="name">
+        </label>
+        <label>ফোন নম্বর
+          <input name="phone" required inputmode="tel" maxlength="14" autocomplete="tel" placeholder="01XXXXXXXXX">
+        </label>
+        <label>পড়াশোনার প্রতিষ্ঠান
+          <input name="institution" required maxlength="100" placeholder="যেমন: বেগম রোকেয়া বিশ্ববিদ্যালয়">
+        </label>
+        <fieldset>
+          <legend>যে বিষয় পড়ান</legend>
+          <div id="jSubjects" class="chips"></div>
+        </fieldset>
+        <fieldset>
+          <legend>যে ক্লাস পড়ান</legend>
+          <div id="jClasses" class="chips"></div>
+        </fieldset>
+        <div class="grid2">
+          <label>এলাকা
+            <select name="area" id="jArea" required><option value="">বাছাই করুন</option></select>
+          </label>
+          <label>প্রত্যাশিত মাসিক রেট (টাকা)
+            <input name="rate" required inputmode="numeric" maxlength="6" placeholder="যেমন: ৩০০০">
+          </label>
+        </div>
+        <label>নিজের সম্পর্কে (ঐচ্ছিক)
+          <textarea name="bio" rows="3" maxlength="300" placeholder="অভিজ্ঞতা, ফলাফল ইত্যাদি"></textarea>
+        </label>
+        <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button type="submit" class="btn primary">যুক্ত হওয়ার আবেদন করুন</button>
+        <p class="status" id="joinStatus" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2>কীভাবে কাজ করে</h2>
+      <ol class="steps">
+        <li><b>পোস্ট করুন</b><span>ক্লাস, বিষয়, এলাকা ও বাজেট জানান।</span></li>
+        <li><b>টিউটর বাছুন</b><span>যাচাইকৃত টিউটরের তালিকা পাবেন।</span></li>
+        <li><b>ট্রায়াল ক্লাস</b><span>কয়েক দিন দেখে সিদ্ধান্ত নিন।</span></li>
+        <li><b>কনফার্ম করুন</b><span>সিদ্ধান্ত পাকা হলে যোগাযোগের নম্বর দেওয়া হবে।</span></li>
+      </ol>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">রংপুর টিউটর &middot; রংপুর, বাংলাদেশ</div>
+</footer>
+
+<dialog id="applyDialog">
+  <form method="dialog" id="applyForm" class="form" novalidate>
+    <h3 id="applyTitle">টিউশনে আবেদন</h3>
+    <label>আপনার নাম
+      <input name="tutor_name" required maxlength="80">
+    </label>
+    <label>ফোন নম্বর
+      <input name="tutor_phone" required inputmode="tel" maxlength="14" placeholder="01XXXXXXXXX">
+    </label>
+    <p class="status" id="applyStatus" role="status" aria-live="polite"></p>
+    <div class="row">
+      <button type="button" class="btn" id="applyCancel">বন্ধ করুন</button>
+      <button type="submit" class="btn primary">আবেদন পাঠান</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

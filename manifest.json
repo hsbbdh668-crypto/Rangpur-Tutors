@@ -1,0 +1,16 @@
+{
+  "name": "রংপুর টিউটর",
+  "short_name": "রংপুর টিউটর",
+  "description": "রংপুরে যাচাইকৃত টিউটর খুঁজুন",
+  "lang": "bn",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF4F0",
+  "theme_color": "#0B4A3C",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
