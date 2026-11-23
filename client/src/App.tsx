@@ -4154,7 +4154,7 @@ function Home({
   return (
     <div>
       {/* Hero — blue gradient, no external photo dependency. */}
-      <section className="rounded-3xl bg-gradient-to-br from-[#35a5dc] via-[var(--accent)] to-[#0d5e8f] px-5 py-10 text-white sm:px-10 sm:py-14">
+      <section className="rounded-3xl bg-gradient-to-br from-[#35a5dc] via-[var(--accent)] to-[#157aad] px-5 py-10 text-white sm:px-10 sm:py-14">
         <span className="inline-block rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-xs font-semibold sm:text-sm">
           {t("heroBadge")}
         </span>
@@ -4260,7 +4260,7 @@ function Home({
         </button>
       </section>
 
-      {/* Why choose — dark navy banner, 2 columns. */}
+      {/* Why choose — blue banner (header blue), 2 columns. */}
       <section className="mt-14 grid grid-cols-1 gap-6 rounded-3xl bg-[var(--navy)] px-5 py-8 text-white sm:px-8 sm:py-10 lg:grid-cols-2 lg:items-center">
         <div>
           <h2 className="text-2xl font-bold leading-tight sm:text-4xl">
@@ -4290,7 +4290,7 @@ function Home({
         </ul>
       </section>
 
-      {/* Final CTA banner — dark navy, centred. */}
+      {/* Final CTA banner — blue (accent-strong), centred. */}
       <section className="mt-6 rounded-3xl bg-[var(--navy-2)] px-5 py-10 text-center text-white sm:py-12">
         <span className="inline-block rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-xs font-semibold sm:text-sm">
           {t("ctaBadge")}
@@ -4763,7 +4763,7 @@ export function App() {
         className={`sticky z-40 pt-safe transition-all duration-300 ${
           scrolled
             ? "top-3 mx-3 rounded-3xl border border-white/25 bg-[var(--header-bg)]/80 px-4 pb-3 shadow-[0_10px_30px_rgba(30,140,200,0.35)] backdrop-blur-xl sm:mx-4"
-            : "top-0 border-b-4 border-[var(--teal-bright)] bg-[var(--header-bg)] px-4 pb-5"
+            : "top-0 border-b border-[var(--teal-bright)] bg-[var(--header-bg)] px-4 pb-3"
         }`}
       >
         <div className="mx-auto max-w-6xl pt-3">
@@ -4859,13 +4859,6 @@ export function App() {
               </button>
             </div>
           </div>
-          <p
-            className={`overflow-hidden text-sm text-white/85 transition-all duration-300 ${
-              scrolled ? "max-h-0 opacity-0" : "mt-3 max-h-10 opacity-100"
-            }`}
-          >
-            {t("tagline")}
-          </p>
           {menuOpen ? (
             <nav className="mt-3 flex flex-col gap-1 rounded-2xl bg-white/10 p-2 lg:hidden" aria-label={t("mainMenu")}>
               {navItems.map((n) => (

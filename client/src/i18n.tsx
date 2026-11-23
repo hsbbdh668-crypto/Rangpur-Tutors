@@ -20,10 +20,6 @@ const S = {
   /* shell */
   appName: { bn: "বারাকা টিউটরস", en: "Baraka Tutors" },
   appSub: { bn: "Baraka Tutors · রংপুর", en: "Rangpur, Bangladesh" },
-  tagline: {
-    bn: "রংপুরের গার্ডিয়ান ও টিউটরদের জন্য — টিউশন খুঁজুন, টিউটর খুঁজুন, সরাসরি যোগাযোগ করুন।",
-    en: "For guardians and tutors in Rangpur — find tuition, find a tutor, and contact them directly.",
-  },
   navBoard: { bn: "বোর্ড", en: "Board" },
   navPost: { bn: "পোস্ট করুন", en: "Post" },
   navFavorites: { bn: "প্রিয়", en: "Favorites" },

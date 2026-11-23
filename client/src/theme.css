@@ -52,11 +52,14 @@ html[lang="bn"] {
   --teal-soft: #e3f2fa;
   --sky: #157aad;
   --sky-soft: #e3f2fa;
-  /* Dark navy derived from the brand blue #1E8CC8 — used ONLY for the
-     dark landing panels (Why Choose, CTA banner, footer). Light-only site:
-     no dark mode, no prefers-color-scheme. */
-  --navy: #0a3550;
-  --navy-2: #0d4266;
+  /* Owner's word (2026-11-24): the header colour #1E8CC8 is the colour
+     everywhere — no dark navy anywhere on the site. The old navy tokens
+     now equal the header blue; the CTA banner uses the slightly deeper
+     accent-strong #157AAD (still the header-blue family) so its blue
+     button stays visible. Light-only site: no dark mode,
+     no prefers-color-scheme. */
+  --navy: #1e8cc8;
+  --navy-2: #157aad;
   --whatsapp: #25d366;
   --danger: #b91c1c;
   --danger-soft: #fee2e2;
