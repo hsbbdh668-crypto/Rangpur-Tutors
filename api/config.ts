@@ -1,6 +1,6 @@
 // Vercel API route: /api/config — public board config + headline stats.
-import { getDb, ensureSchema, getSetting } from "../lib/db";
-import { json } from "../lib/posts";
+import { getDb, ensureSchema, getSetting } from "../lib/db.js";
+import { json } from "../lib/posts.js";
 
 export async function GET(): Promise<Response> {
   try {

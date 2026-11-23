@@ -1,7 +1,7 @@
 // Vercel API route: /api/posts
 //   GET  — list approved posts (same filters as the board) / one post via ?id=
 //   POST — create a guardian request or tutor offer (pending unless auto-approve)
-import { getDb, ensureSchema, getSetting } from "../lib/db";
+import { getDb, ensureSchema, getSetting } from "../lib/db.js";
 import {
   applicationCounts,
   badRequest,
@@ -15,7 +15,7 @@ import {
   toPost,
   validPhone,
   type Filters,
-} from "../lib/posts";
+} from "../lib/posts.js";
 
 export async function GET(req: Request): Promise<Response> {
   try {

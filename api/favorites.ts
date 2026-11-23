@@ -1,8 +1,8 @@
 // Vercel API route: /api/favorites
 //   GET  — bookmarked (approved) posts + their ids
 //   POST — toggle a bookmark { postId }
-import { getDb, ensureSchema } from "../lib/db";
-import { applicationCounts, badRequest, json, readBody, toPost } from "../lib/posts";
+import { getDb, ensureSchema } from "../lib/db.js";
+import { applicationCounts, badRequest, json, readBody, toPost } from "../lib/posts.js";
 
 export async function GET(): Promise<Response> {
   try {

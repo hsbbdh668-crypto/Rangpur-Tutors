@@ -2,8 +2,8 @@
 //   GET    — list saved filter presets
 //   POST   — save one { label, filters }
 //   DELETE — remove one { id } (or ?id=)
-import { getDb, ensureSchema } from "../lib/db";
-import { badRequest, json, readBody, str } from "../lib/posts";
+import { getDb, ensureSchema } from "../lib/db.js";
+import { badRequest, json, readBody, str } from "../lib/posts.js";
 
 export async function GET(): Promise<Response> {
   try {

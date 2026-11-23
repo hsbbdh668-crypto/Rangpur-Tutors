@@ -1,6 +1,6 @@
 // Vercel API route: POST /api/report — report a post for admin review.
-import { getDb, ensureSchema } from "../lib/db";
-import { badRequest, json, readBody, str } from "../lib/posts";
+import { getDb, ensureSchema } from "../lib/db.js";
+import { badRequest, json, readBody, str } from "../lib/posts.js";
 
 const REASONS = ["wrong_info", "spam", "inappropriate", "fraud", "other"];
 

@@ -1,7 +1,7 @@
 // Shared post mapping + filtering for the Vercel API routes.
 // Mirrors the logic in server/src/actions.ts so both backends behave alike.
 
-import { getDb, ensureSchema } from "./db";
+import { getDb, ensureSchema } from "./db.js";
 
 export interface Post {
   id: number;

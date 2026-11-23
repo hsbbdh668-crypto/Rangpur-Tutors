@@ -13,8 +13,8 @@
 // off, the admin has taken the chat over, the topic is sensitive, or no
 // AI key is configured, the message is flagged for the admin instead —
 // the AI never decides money or verification matters.
-import { getDb, ensureSchema, getSetting } from "../lib/db";
-import { badRequest, json, readBody, str } from "../lib/posts";
+import { getDb, ensureSchema, getSetting } from "../lib/db.js";
+import { badRequest, json, readBody, str } from "../lib/posts.js";
 
 interface ChatMsg {
   id: number;

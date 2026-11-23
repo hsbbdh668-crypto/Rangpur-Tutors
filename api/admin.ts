@@ -6,8 +6,8 @@
 // updatePost, deletePost, listApplications, setApplicationStatus,
 // deleteApplication, listReports, setReportStatus, updateSettings,
 // chatList, chatGet, chatReply, chatSetMode.
-import { checkPasscode, ensureSchema, expectedPasscode, getDb, getSetting, setSetting } from "../lib/db";
-import { applicationCounts, badRequest, json, num, readBody, str, toPost, validPhone } from "../lib/posts";
+import { checkPasscode, ensureSchema, expectedPasscode, getDb, getSetting, setSetting } from "../lib/db.js";
+import { applicationCounts, badRequest, json, num, readBody, str, toPost, validPhone } from "../lib/posts.js";
 
 const UNAUTHORIZED = () => json({ error: "ভুল পাসকোড — আবার চেষ্টা করুন" }, 401);
 

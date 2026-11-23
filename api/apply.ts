@@ -1,6 +1,6 @@
 // Vercel API route: POST /api/apply — apply to / contact about a post.
-import { getDb, ensureSchema } from "../lib/db";
-import { badRequest, json, readBody, str, validPhone } from "../lib/posts";
+import { getDb, ensureSchema } from "../lib/db.js";
+import { badRequest, json, readBody, str, validPhone } from "../lib/posts.js";
 
 export async function POST(req: Request): Promise<Response> {
   try {
