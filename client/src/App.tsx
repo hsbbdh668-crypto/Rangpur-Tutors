@@ -4160,7 +4160,7 @@ function Home({
         </span>
         <h2 className="mt-4 max-w-2xl text-3xl font-extrabold leading-tight sm:text-5xl">
           {t("heroTitleStart")}{" "}
-          <span className="text-4xl font-black text-[#340070] sm:text-6xl">{t("heroTitleAccent")}</span>{" "}
+          <span className="text-4xl font-black text-white sm:text-6xl">{t("heroTitleAccent")}</span>{" "}
           {t("heroTitleEnd")}
         </h2>
         <p className="mt-3 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
