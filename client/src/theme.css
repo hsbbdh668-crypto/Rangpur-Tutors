@@ -32,9 +32,10 @@ html[lang="bn"] {
 :root {
   color-scheme: light;
   /* Baraka Tutors brand — Tutor.com theme (#8), chosen by the user:
-     blue #1E8CC8 header and buttons, yellow #FFD400 accent. The charcoal
-     header was removed at the user's word — the header is the same blue as
-     the buttons. Light mode only. */
+     blue #1E8CC8 header and buttons, sky-blue accent (#7CC7E8 / #157AAD).
+     The yellow accent was removed at the user's word — he did not like
+     the yellow/gold. The charcoal header was removed at the user's word
+     — the header is the same blue as the buttons. Light mode only. */
   --bg: #f7f8fa;
   --surface: #ffffff;
   --surface-2: #f1f3f5;
@@ -49,8 +50,8 @@ html[lang="bn"] {
   --teal-strong: #157aad;
   --teal-bright: #35a5dc;
   --teal-soft: #e3f2fa;
-  --amber: #e8a800;
-  --amber-soft: #fff8d6;
+  --sky: #157aad;
+  --sky-soft: #e3f2fa;
   /* Dark navy derived from the brand blue #1E8CC8 — used ONLY for the
      dark landing panels (Why Choose, CTA banner, footer). Light-only site:
      no dark mode, no prefers-color-scheme. */

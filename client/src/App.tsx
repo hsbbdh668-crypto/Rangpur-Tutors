@@ -122,10 +122,10 @@ const EMPTY_FILTERS: BoardFilters = {
 
 /* ---------------- small UI helpers ---------------- */
 
-function Chip({ children, tone = "soft" }: { children: ReactNode; tone?: "soft" | "amber" | "green" }) {
+function Chip({ children, tone = "soft" }: { children: ReactNode; tone?: "soft" | "blue" | "green" }) {
   const cls =
-    tone === "amber"
-      ? "bg-[var(--amber-soft)] text-[var(--amber)]"
+    tone === "blue"
+      ? "bg-[var(--sky-soft)] text-[var(--sky)]"
       : tone === "green"
         ? "bg-[var(--teal-soft)] text-[var(--teal-strong)]"
         : "bg-[var(--surface-2)] text-[var(--dim)]";
@@ -254,7 +254,7 @@ function PostCard({
     <article className="flex flex-col rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(30,140,200,0.06)]">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Chip tone={isGuardian ? "amber" : "green"}>
+          <Chip tone={isGuardian ? "blue" : "green"}>
             {isGuardian ? (
               <>
                 <IconHome className="h-3.5 w-3.5" /> {t("chipGuardian")}
@@ -265,7 +265,7 @@ function PostCard({
               </>
             )}
           </Chip>
-          {post.featured ? <Chip tone="amber"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
+          {post.featured ? <Chip tone="blue"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
           {post.verified ? <Chip tone="green"><IconShieldCheck className="h-3.5 w-3.5" /> {t("chipVerifiedTutor")}</Chip> : null}
           <GenderChip post={post} />
         </div>
@@ -466,7 +466,7 @@ function Board({
   return (
     <div>
       {configQuery.data?.notice ? (
-        <div className="mb-4 rounded-[var(--radius)] bg-[var(--amber-soft)] px-4 py-3 text-sm font-medium text-[var(--text)]">
+        <div className="mb-4 rounded-[var(--radius)] bg-[var(--sky-soft)] px-4 py-3 text-sm font-medium text-[var(--text)]">
           <IconMegaphone className="mr-1 inline h-4 w-4 align-[-2px]" /> {configQuery.data.notice}
         </div>
       ) : null}
@@ -884,7 +884,7 @@ function PostDetail({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap gap-1.5">
-            <Chip tone={isGuardian ? "amber" : "green"}>
+            <Chip tone={isGuardian ? "blue" : "green"}>
               {isGuardian ? (
                 <>
                   <IconHome className="h-3.5 w-3.5" /> {t("chipGuardian")}
@@ -895,7 +895,7 @@ function PostDetail({
                 </>
               )}
             </Chip>
-            {post.featured ? <Chip tone="amber"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
+            {post.featured ? <Chip tone="blue"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
             {post.verified ? <Chip tone="green"><IconShieldCheck className="h-3.5 w-3.5" /> {t("chipVerifiedTutor")}</Chip> : null}
             <GenderChip post={post} />
           </div>
@@ -1223,7 +1223,7 @@ function GuardianApplications({ postId }: { postId: number }) {
                 className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] p-3"
               >
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Chip tone={a.status === "new" ? "amber" : a.status === "accepted" ? "green" : "soft"}>
+                  <Chip tone={a.status === "new" ? "blue" : a.status === "accepted" ? "green" : "soft"}>
                     {statusLabel(a.status)}
                   </Chip>
                   <span className="ml-auto text-xs text-[var(--dim)]">{fullDate(a.createdAt, lang)}</span>
@@ -2391,7 +2391,7 @@ function TutorDashboard({
                       <IconShieldCheck className="h-3.5 w-3.5" /> {t("verifiedTutorBadge")}
                     </Chip>
                   ) : (
-                    <Chip tone="amber">
+                    <Chip tone="blue">
                       <IconClock className="h-3.5 w-3.5" /> {t("verificationPending")}
                     </Chip>
                   )}
@@ -2406,7 +2406,7 @@ function TutorDashboard({
               </div>
             </div>
             {!tutor.verified ? (
-              <p className="mt-3 rounded-[var(--radius)] bg-[var(--amber-soft)] px-3 py-2.5 text-sm text-[var(--text)]">
+              <p className="mt-3 rounded-[var(--radius)] bg-[var(--sky-soft)] px-3 py-2.5 text-sm text-[var(--text)]">
                 {t("verificationPendingNote")}
               </p>
             ) : null}
@@ -2520,7 +2520,7 @@ function TutorDashboard({
                         className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
                       >
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <Chip tone={a.status === "new" ? "amber" : a.status === "accepted" ? "green" : "soft"}>
+                          <Chip tone={a.status === "new" ? "blue" : a.status === "accepted" ? "green" : "soft"}>
                             {appStatusLabel(a.status)}
                           </Chip>
                           <span className="ml-auto text-xs text-[var(--dim)]">{fullDate(a.createdAt, lang)}</span>
@@ -2568,7 +2568,7 @@ function TutorDashboard({
                         className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
                       >
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <Chip tone={a.status === "new" ? "amber" : a.status === "accepted" ? "green" : "soft"}>
+                          <Chip tone={a.status === "new" ? "blue" : a.status === "accepted" ? "green" : "soft"}>
                             {appStatusLabel(a.status)}
                           </Chip>
                           <span className="ml-auto text-xs text-[var(--dim)]">{fullDate(a.createdAt, lang)}</span>
@@ -2999,11 +2999,11 @@ function AdminPanel() {
                   className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <Chip tone={p.kind === "guardian" ? "amber" : "green"}>
+                    <Chip tone={p.kind === "guardian" ? "blue" : "green"}>
                       {p.kind === "guardian" ? t("guardianWord") : t("tutorWord")}
                     </Chip>
                     <Chip
-                      tone={p.status === "approved" ? "green" : p.status === "pending" ? "amber" : "soft"}
+                      tone={p.status === "approved" ? "green" : p.status === "pending" ? "blue" : "soft"}
                     >
                       {p.status === "approved"
                         ? t("statusApproved")
@@ -3013,7 +3013,7 @@ function AdminPanel() {
                             ? t("statusRejected")
                             : t("statusClosed")}
                     </Chip>
-                    {p.featured ? <Chip tone="amber"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
+                    {p.featured ? <Chip tone="blue"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
                     {p.verified ? <Chip tone="green"><IconShieldCheck className="h-3.5 w-3.5" /> {t("chipVerifiedShort")}</Chip> : null}
                     <span className="ml-auto text-xs text-[var(--dim)]">
                       {fullDate(p.createdAt, lang)} · {t("applicationsCount", { n: num(p.applicationCount) })}
@@ -3150,7 +3150,7 @@ function AdminPanel() {
                 className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
               >
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Chip tone={a.status === "new" ? "amber" : a.status === "accepted" ? "green" : "soft"}>
+                  <Chip tone={a.status === "new" ? "blue" : a.status === "accepted" ? "green" : "soft"}>
                     {a.status === "new"
                       ? t("appStatusNew")
                       : a.status === "contacted"
@@ -3221,7 +3221,7 @@ function AdminPanel() {
                 className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
               >
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Chip tone={r.status === "open" ? "amber" : "soft"}>
+                  <Chip tone={r.status === "open" ? "blue" : "soft"}>
                     {r.status === "open"
                       ? t("reportStatusOpen")
                       : r.status === "resolved"
@@ -3857,7 +3857,7 @@ function ChatWidget() {
               <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg)] p-3">
                 <ChatBubbles messages={localMessages} viewer="visitor" />
                 {needsAdmin ? (
-                  <p className="mt-3 text-center text-xs font-semibold text-[var(--amber)]">
+                  <p className="mt-3 text-center text-xs font-semibold text-[var(--sky)]">
                     <IconPin className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatEscalated")}
                   </p>
                 ) : null}
@@ -4025,7 +4025,7 @@ function AdminChats({ passcode }: { passcode: string }) {
                   <Chip tone={c.mode === "admin" ? "green" : "soft"}>
                     {c.mode === "admin" ? (<><IconUser className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatModeAdmin")}</>) : (<><IconBot className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatModeAi")}</>)}
                   </Chip>
-                  {c.needsAdmin ? <Chip tone="amber"><IconPin className="h-3.5 w-3.5" /> {t("chatNeedsAdmin")}</Chip> : null}
+                  {c.needsAdmin ? <Chip tone="blue"><IconPin className="h-3.5 w-3.5" /> {t("chatNeedsAdmin")}</Chip> : null}
                 </div>
               </button>
             ))}
@@ -4160,7 +4160,7 @@ function Home({
         </span>
         <h2 className="mt-4 max-w-2xl text-3xl font-extrabold leading-tight sm:text-5xl">
           {t("heroTitleStart")}{" "}
-          <span className="text-[#ffd400]">{t("heroTitleAccent")}</span>{" "}
+          <span className="text-[#7cc7e8]">{t("heroTitleAccent")}</span>{" "}
           {t("heroTitleEnd")}
         </h2>
         <p className="mt-3 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
@@ -4170,7 +4170,7 @@ function Home({
           <button
             type="button"
             onClick={onFindTutor}
-            className="rounded-full bg-[#ffd400] px-6 py-3 text-base font-bold text-[#1a1a1a] shadow-lg"
+            className="rounded-full bg-white px-6 py-3 text-base font-bold text-[#157aad] shadow-lg"
           >
             {t("heroFindBtn")} →
           </button>
@@ -4262,13 +4262,13 @@ function Home({
       <section className="mt-14 grid grid-cols-1 gap-6 rounded-3xl bg-[var(--navy)] px-5 py-8 text-white sm:px-8 sm:py-10 lg:grid-cols-2 lg:items-center">
         <div>
           <h2 className="text-2xl font-bold leading-tight sm:text-4xl">
-            {t("whyTitleA")} <span className="text-[#ffd400]">{t("whyTitleB")}</span>
+            {t("whyTitleA")} <span className="text-[#7cc7e8]">{t("whyTitleB")}</span>
           </h2>
           <p className="mt-3 max-w-md text-base leading-relaxed text-white/85">{t("whySub")}</p>
           <button
             type="button"
             onClick={onBecomeTutor}
-            className="mt-5 rounded-full bg-[#ffd400] px-5 py-2.5 text-base font-bold text-[#1a1a1a]"
+            className="mt-5 rounded-full bg-white px-5 py-2.5 text-base font-bold text-[#157aad]"
           >
             {t("becomeTutorBtn")}
           </button>
@@ -4279,7 +4279,7 @@ function Home({
               key={w}
               className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm font-medium sm:text-base"
             >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#ffd400] text-[#1a1a1a]">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#35a5dc] text-white">
                 <IconCheck className="h-4 w-4" />
               </span>
               {w}
@@ -4804,7 +4804,7 @@ export function App() {
               <button
                 type="button"
                 onClick={goSignup}
-                className="hidden rounded-full bg-[#ffd400] px-4 py-2 text-sm font-bold text-[#1a1a1a] sm:inline-flex"
+                className="hidden rounded-full bg-white px-4 py-2 text-sm font-bold text-[#157aad] sm:inline-flex"
               >
                 {t("becomeTutorBtn")}
               </button>
@@ -4882,7 +4882,7 @@ export function App() {
               <button
                 type="button"
                 onClick={goSignup}
-                className="mt-1 flex items-center gap-2 rounded-xl bg-[#ffd400] px-3 py-2.5 text-left text-sm font-bold text-[#1a1a1a]"
+                className="mt-1 flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-left text-sm font-bold text-[#157aad]"
               >
                 <IconGradCap className="h-4 w-4" /> {t("becomeTutorBtn")}
               </button>
