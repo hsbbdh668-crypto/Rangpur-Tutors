@@ -78,12 +78,12 @@ type KindFilter = "all" | "guardian" | "tutor";
 /* University cards on the landing page filter the board by institution.
    Aliases cover the English name and the Bangla name as tutors write it. */
 const UNI_ALIASES: Record<string, string[]> = {
-  BUET: ["buet", "বুয়েট"],
-  "University of Dhaka": ["dhaka university", "ঢাকা বিশ্ববিদ্যালয়", "university of dhaka"],
-  "Dhaka Medical College": ["dhaka medical", "ঢাকা মেডিকেল", "medical college"],
-  "Jahangirnagar University": ["jahangirnagar", "জাহাঙ্গীরনগর"],
-  "BRAC University": ["brac", "ব্র্যাক"],
-  "North South University": ["north south", "নর্থ সাউথ", "nsu"],
+  "বেগম রোকেয়া বিশ্ববিদ্যালয়": ["begum rokeya", "বেগম রোকেয়া", "রোকেয়া বিশ্ববিদ্যালয়", "brur", "বেরোবি"],
+  "রংপুর মেডিকেল কলেজ": ["rangpur medical", "রংপুর মেডিকেল", "রংপুর মেডিকেল কলেজ"],
+  "কারমাইকেল কলেজ": ["carmichael", "কারমাইকেল"],
+  "রংপুর সরকারি কলেজ": ["rangpur government college", "রংপুর সরকারি কলেজ", "rangpur govt college"],
+  "রংপুর পলিটেকনিক ইনস্টিটিউট": ["rangpur polytechnic", "রংপুর পলিটেকনিক", "polytechnic"],
+  "সরকারি রোকেয়া মহিলা কলেজ": ["rokeya mohila", "রোকেয়া মহিলা", "rokeya women's college", "সরকারি রোকেয়া মহিলা কলেজ"],
 };
 
 function matchesUniversity(institution: string, uniName: string): boolean {
@@ -4110,12 +4110,12 @@ function AdminChats({ passcode }: { passcode: string }) {
 /* ---------------- landing (Tasnim-style home) ---------------- */
 
 const UNIVERSITIES = [
-  "BUET",
-  "University of Dhaka",
-  "Dhaka Medical College",
-  "Jahangirnagar University",
-  "BRAC University",
-  "North South University",
+  "বেগম রোকেয়া বিশ্ববিদ্যালয়",
+  "রংপুর মেডিকেল কলেজ",
+  "কারমাইকেল কলেজ",
+  "রংপুর সরকারি কলেজ",
+  "রংপুর পলিটেকনিক ইনস্টিটিউট",
+  "সরকারি রোকেয়া মহিলা কলেজ",
 ];
 
 function Home({
@@ -4184,7 +4184,9 @@ function Home({
         </div>
         <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 border-t border-white/25 pt-4 text-sm font-semibold">
           <span><IconBoard className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("trustStripPosts", { n: num(totalPosts) })}</span>
-          <span><IconShieldCheck className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("trustStripVerified")}</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[#157aad] shadow-md">
+            <IconShieldCheck className="h-4 w-4" /> {t("trustStripVerified")}
+          </span>
           <span><IconPin className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("trustStripArea")}</span>
         </div>
       </section>
@@ -4207,7 +4209,7 @@ function Home({
         ))}
       </section>
 
-      {/* Tutors from top universities — 6 cards, tap to filter the board. */}
+      {/* Tutors from Rangpur's top institutions — 6 cards, tap to filter the board. */}
       <section id="home-tutors" className="mt-14 scroll-mt-28 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] sm:text-4xl">
           {t("uniTitleA")} <span className="text-[var(--accent-strong)]">{t("uniTitleB")}</span>
