@@ -292,6 +292,22 @@ function post<T>(path: string, body: unknown): Promise<T> {
   return req<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
 }
 
+// GETs the board fires twice on load (getConfig + getStats both hit
+// /api/config; listFavorites + listFavoriteIds both hit /api/favorites):
+// share one in-flight request so the server is only hit once per load.
+const inflight = new Map<string, Promise<unknown>>();
+function dedup<T>(path: string, run: () => Promise<T>): Promise<T> {
+  const existing = inflight.get(path);
+  if (existing) return existing as Promise<T>;
+  const p = run();
+  inflight.set(path, p);
+  const clear = () => {
+    if (inflight.get(path) === p) inflight.delete(path);
+  };
+  p.then(clear, clear);
+  return p;
+}
+
 /** Builds a query string, skipping undefined / null / empty values. */
 function query(params: Record<string, string | number | undefined>): string {
   const sp = new URLSearchParams();
@@ -304,7 +320,9 @@ function query(params: Record<string, string | number | undefined>): string {
 
 export const restApi = {
   getConfig: async (_args: Record<string, never>): Promise<BoardConfig> => {
-    const d = await req<BoardConfig & { stats: BoardStats }>("/api/config");
+    const d = await dedup("/api/config", () =>
+      req<BoardConfig & { stats: BoardStats }>("/api/config"),
+    );
     return {
       notice: d.notice,
       autoApprove: d.autoApprove,
@@ -318,7 +336,7 @@ export const restApi = {
   getStats: async (_args: Record<string, never>): Promise<BoardStats> => {
     // /api/config nests the same counts under `stats`; the Hatch action
     // returns them flat, so unwrap here.
-    const d = await req<{ stats: BoardStats }>("/api/config");
+    const d = await dedup("/api/config", () => req<{ stats: BoardStats }>("/api/config"));
     return d.stats;
   },
 
@@ -416,12 +434,16 @@ export const restApi = {
   listFavorites: async (
     _args: Record<string, never>,
   ): Promise<{ posts: Post[]; favoriteIds: number[] }> => {
-    return req<{ posts: Post[]; favoriteIds: number[] }>("/api/favorites");
+    return dedup("/api/favorites", () =>
+      req<{ posts: Post[]; favoriteIds: number[] }>("/api/favorites"),
+    );
   },
 
   listFavoriteIds: async (_args: Record<string, never>): Promise<{ favoriteIds: number[] }> => {
     // Same endpoint as listFavorites; only the ids are kept.
-    const d = await req<{ favoriteIds: number[] }>("/api/favorites");
+    const d = await dedup("/api/favorites", () =>
+      req<{ favoriteIds: number[] }>("/api/favorites"),
+    );
     return { favoriteIds: d.favoriteIds };
   },
 

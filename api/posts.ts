@@ -37,14 +37,15 @@ export async function GET(req: Request): Promise<Response> {
     await ensureSchema();
     const url = new URL(req.url);
     const db = getDb();
-    const counts = await applicationCounts();
-
     const idParam = url.searchParams.get("id");
     if (idParam) {
-      const rs = await db.execute({
-        sql: "SELECT * FROM posts WHERE id = ? AND status = 'approved' LIMIT 1",
-        args: [Number(idParam)],
-      });
+      const [counts, rs] = await Promise.all([
+        applicationCounts(),
+        db.execute({
+          sql: "SELECT * FROM posts WHERE id = ? AND status = 'approved' LIMIT 1",
+          args: [Number(idParam)],
+        }),
+      ]);
       const row = rs.rows[0];
       return json({ post: row ? toPublicPost(row, counts.get(Number(row.id)) ?? 0) : null });
     }
@@ -64,13 +65,22 @@ export async function GET(req: Request): Promise<Response> {
     };
     const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") ?? 100) || 100));
 
-    const rs = await db.execute(
-      "SELECT * FROM posts WHERE status = 'approved' ORDER BY created_at DESC",
-    );
+    const [counts, rs] = await Promise.all([
+      applicationCounts(),
+      db.execute(
+        "SELECT * FROM posts WHERE status = 'approved' ORDER BY created_at DESC",
+      ),
+    ]);
     let posts = rs.rows.map((r) => toPublicPost(r, counts.get(Number(r.id)) ?? 0));
     posts = posts.filter((p) => matchesFilters(p, filters));
     posts = sortPosts(posts, filters.sort);
-    return json({ posts: posts.slice(0, limit) });
+    // Short edge cache: the board list is the same for every visitor and
+    // revalidates in the background, so repeat loads skip the DB entirely.
+    return json(
+      { posts: posts.slice(0, limit) },
+      200,
+      { "cache-control": "public, s-maxage=15, stale-while-revalidate=60" },
+    );
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "Server error" }, 500);
   }

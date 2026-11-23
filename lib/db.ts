@@ -146,19 +146,10 @@ export function ensureSchema(): Promise<void> {
         ],
         "write",
       );
-      // Backfill for databases created before the commission columns
-      // existed (the live Turso DB): ADD COLUMN is a no-op error when the
-      // column is already there, so both statements are safe to re-run.
-      for (const sql of [
-        "ALTER TABLE applications ADD COLUMN commission_amount INTEGER",
-        "ALTER TABLE applications ADD COLUMN commission_status TEXT NOT NULL DEFAULT 'pending'",
-      ]) {
-        try {
-          await db.execute(sql);
-        } catch {
-          /* column already exists — nothing to do */
-        }
-      }
+      // NOTE: the commission columns live in the CREATE TABLE above, so
+      // no ALTER backfill is needed (the old loop always failed on a
+      // live DB where the columns exist — two wasted round trips per
+      // cold start).
     })();
   }
   return schemaReady;

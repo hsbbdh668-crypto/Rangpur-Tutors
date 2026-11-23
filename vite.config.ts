@@ -15,10 +15,12 @@
 //    the shim's createActionClient returns the REST client, and its
 //    spaceQueryClient / SafeAreaTopScrim / setFailureNoticeText stand in
 //    for the SDK's.
-//  - Aliases the binary logo import to the text-only base64 module
+//  - Aliases the binary logo import to the tiny URL module
+//    (client/src/assets/baraka-logo.url.ts) and emits the real
+//    baraka-logo.webp into dist from the text-only base64 module
 //    (client/src/assets/baraka-logo.data.ts), so the repo stays 100%
 //    text files for the GitHub push — the .webp itself is never needed
-//    by this build.
+//    by this build, and the ~122KB base64 stays out of the JS bundle.
 //  - Emits the favicon at build time (barakaFavicon plugin below): it
 //    decodes client/src/assets/favicon.data.ts (base64 text, logo #4)
 //    into real favicon.png + favicon.ico in client/dist, and swaps the
@@ -42,18 +44,26 @@ import {
   FAVICON_PNG_BASE64,
   FAVICON_ICO_BASE64,
 } from "./client/src/assets/favicon.data";
+import BARAKA_LOGO_DATA_URI from "./client/src/assets/baraka-logo.data";
 
 const repoRoot = dirname(fileURLToPath(import.meta.url));
 const clientDir = resolve(repoRoot, "client");
 const shimPath = resolve(clientDir, "src/vercel-shim.ts");
-const logoDataPath = resolve(clientDir, "src/assets/baraka-logo.data.ts");
+const logoUrlPath = resolve(clientDir, "src/assets/baraka-logo.url.ts");
 
-// Favicon for the Vercel build only (logo #4, see favicon.data.ts).
+// Favicon + logo for the Vercel build only (logo #4, see favicon.data.ts
+// and baraka-logo.data.ts).
 // The source client/index.html deliberately keeps its empty `data:,`
 // icon so the Hatch artifact never fetches /favicon.ico outside the
 // space's routes. This plugin, which runs only in the Vite/Vercel
 // build, emits real favicon files into dist and rewrites the built
-// index.html to link them.
+// index.html to link them. It also emits baraka-logo.webp into dist:
+// App.tsx's logo import is aliased (below) to the tiny URL module
+// client/src/assets/baraka-logo.url.ts, so the ~122KB base64 logo stays
+// out of the JS bundle and loads as a separate cacheable file instead.
+// The binary favicon/logo files are never stored in the repo: the
+// GitHub snapshot push rejects binary files, so only the base64 text
+// modules are pushed.
 function barakaFavicon() {
   return {
     name: "baraka-favicon",
@@ -75,6 +85,9 @@ function barakaFavicon() {
       const ico = Buffer.from(FAVICON_ICO_BASE64, "base64");
       this.emitFile({ type: "asset", fileName: "favicon.png", source: png });
       this.emitFile({ type: "asset", fileName: "favicon.ico", source: ico });
+      const logoB64 = BARAKA_LOGO_DATA_URI.replace(/^data:image\/webp;base64,/, "");
+      const logo = Buffer.from(logoB64, "base64");
+      this.emitFile({ type: "asset", fileName: "baraka-logo.webp", source: logo });
     },
   };
 }
@@ -108,7 +121,7 @@ export default defineConfig({
       // regex like /baraka-logo\.webp$/ would leave "./assets/" in front
       // of the absolute path and break the build. An exact string find
       // replaces the entire "./assets/baraka-logo.webp" specifier.
-      { find: "./assets/baraka-logo.webp", replacement: logoDataPath },
+      { find: "./assets/baraka-logo.webp", replacement: logoUrlPath },
     ],
   },
   build: {
