@@ -71,6 +71,17 @@ export const applications = sqliteTable("applications", {
   })
     .notNull()
     .default("new"),
+  // Commission tracking (tracking only — no payment processing, and no
+  // commission rate/percentage has been set by the owner, so the amount
+  // starts empty and the admin fills it in). When an application becomes
+  // accepted a commission record is created on it: status "pending",
+  // amount NULL. The admin edits the amount and marks it paid/waived.
+  commissionAmount: integer("commission_amount"),
+  commissionStatus: text("commission_status", {
+    enum: ["pending", "paid", "waived"],
+  })
+    .notNull()
+    .default("pending"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -110,6 +121,49 @@ export const savedSearches = sqliteTable("saved_searches", {
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull().default(""),
+});
+
+// Tutor accounts (tutors sign up and log in; guardians never do — they
+// keep posting without an account).
+// tutors — one row per registered tutor. passwordHash is a scrypt hash,
+//   passwordSalt its random salt; plaintext passwords are never stored.
+//   verified is set by the admin (0 until checked). photoUrl is an
+//   optional photo URL — no file upload.
+// tutorSessions — login tokens (crypto-random, 30-day expiry).
+export const tutors = sqliteTable("tutors", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  phone: text("phone").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  passwordSalt: text("password_salt").notNull(),
+  university: text("university").notNull().default(""),
+  department: text("department").notNull().default(""),
+  subjects: text("subjects").notNull().default("[]"),
+  classes: text("classes").notNull().default("[]"),
+  areas: text("areas").notNull().default("[]"),
+  experience: text("experience").notNull().default(""),
+  fees: text("fees").notNull().default(""),
+  gender: text("gender", { enum: ["male", "female", "other"] })
+    .notNull()
+    .default("other"),
+  photoUrl: text("photo_url"),
+  verified: integer("verified").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const tutorSessions = sqliteTable("tutor_sessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  token: text("token").notNull().unique(),
+  tutorId: integer("tutor_id").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
 });
 
 // Live-chat with the AI assistant.

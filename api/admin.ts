@@ -4,10 +4,10 @@
 //
 // Actions: verify, stats, listPosts, setPostStatus, setPostFlags,
 // updatePost, deletePost, listApplications, setApplicationStatus,
-// deleteApplication, listReports, setReportStatus, updateSettings,
-// chatList, chatGet, chatReply, chatSetMode.
+// setCommission, deleteApplication, listReports, setReportStatus,
+// updateSettings, chatList, chatGet, chatReply, chatSetMode.
 import { checkPasscode, ensureSchema, expectedPasscode, getDb, getSetting, setSetting } from "../lib/db.js";
-import { applicationCounts, badRequest, json, num, readBody, str, toPost, validPhone } from "../lib/posts.js";
+import { applicationCounts, badRequest, json, num, readBody, str, strList, toPost, validPhone } from "../lib/posts.js";
 
 const UNAUTHORIZED = () => json({ error: "ভুল পাসকোড — আবার চেষ্টা করুন" }, 401);
 
@@ -179,6 +179,11 @@ export async function POST(req: Request): Promise<Response> {
               applicantRole: String(r.applicant_role),
               message: String(r.message ?? ""),
               status: String(r.status),
+              // Commission record (tracking only): amount starts NULL —
+              // no commission rate is set, the admin fills it in.
+              commissionAmount:
+                r.commission_amount == null ? null : Number(r.commission_amount),
+              commissionStatus: String(r.commission_status ?? "pending"),
               createdAt: new Date(Number(r.created_at)).toISOString(),
             };
           }),
@@ -190,9 +195,61 @@ export async function POST(req: Request): Promise<Response> {
         if (!["new", "contacted", "accepted", "rejected"].includes(status)) {
           return badRequest("স্ট্যাটাস ঠিক নেই");
         }
+        const id = num(b.id) ?? Number(b.id);
+        if (status === "accepted") {
+          // Accepting creates the commission record: status pending,
+          // amount NULL — unless already paid/waived, which is kept.
+          const cur = await db.execute({
+            sql: "SELECT commission_status FROM applications WHERE id = ? LIMIT 1",
+            args: [id],
+          });
+          const curStatus = String(cur.rows[0]?.commission_status ?? "pending");
+          if (curStatus === "paid" || curStatus === "waived") {
+            await db.execute({
+              sql: "UPDATE applications SET status = 'accepted' WHERE id = ?",
+              args: [id],
+            });
+          } else {
+            await db.execute({
+              sql: "UPDATE applications SET status = 'accepted', commission_status = 'pending' WHERE id = ?",
+              args: [id],
+            });
+          }
+        } else {
+          await db.execute({
+            sql: "UPDATE applications SET status = ? WHERE id = ?",
+            args: [status, id],
+          });
+        }
+        return json({ ok: true });
+      }
+
+      case "setCommission": {
+        const id = num(b.id) ?? Number(b.id);
+        const sets: string[] = [];
+        const args: (string | number | null)[] = [];
+        if (b.amount !== undefined) {
+          // Amount in BDT; null clears it back to empty (not set).
+          const amount = b.amount === null ? null : num(b.amount);
+          if (b.amount !== null && (amount === null || amount < 0)) {
+            return badRequest("কমিশনের পরিমাণ ঠিক নেই");
+          }
+          sets.push("commission_amount = ?");
+          args.push(amount);
+        }
+        if (b.status !== undefined) {
+          const cs = str(b.status);
+          if (cs !== "pending" && cs !== "paid" && cs !== "waived") {
+            return badRequest("কমিশনের স্ট্যাটাস ঠিক নেই");
+          }
+          sets.push("commission_status = ?");
+          args.push(cs);
+        }
+        if (sets.length === 0) return json({ ok: true });
+        args.push(id);
         await db.execute({
-          sql: "UPDATE applications SET status = ? WHERE id = ?",
-          args: [status, num(b.id) ?? Number(b.id)],
+          sql: `UPDATE applications SET ${sets.join(", ")} WHERE id = ?`,
+          args,
         });
         return json({ ok: true });
       }

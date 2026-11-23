@@ -17,6 +17,21 @@ import {
   type Filters,
 } from "../lib/posts.js";
 
+// Public posts never carry a full phone number: the masked form
+// (017XX-XXX123) is returned instead, server-side. Admin calls go
+// through /api/admin (toPost, unmasked) and still see full numbers.
+/** Masks a phone number: 01700123456 -> 017XX-XXX123. */
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return "***";
+  return `${digits.slice(0, 3)}XX-XXX${digits.slice(-3)}`;
+}
+
+function toPublicPost(row: Record<string, unknown>, applicationCount: number) {
+  const post = toPost(row, applicationCount);
+  return { ...post, phone: maskPhone(post.phone) };
+}
+
 export async function GET(req: Request): Promise<Response> {
   try {
     await ensureSchema();
@@ -31,7 +46,7 @@ export async function GET(req: Request): Promise<Response> {
         args: [Number(idParam)],
       });
       const row = rs.rows[0];
-      return json({ post: row ? toPost(row, counts.get(Number(row.id)) ?? 0) : null });
+      return json({ post: row ? toPublicPost(row, counts.get(Number(row.id)) ?? 0) : null });
     }
 
     const filters: Filters = {
@@ -52,7 +67,7 @@ export async function GET(req: Request): Promise<Response> {
     const rs = await db.execute(
       "SELECT * FROM posts WHERE status = 'approved' ORDER BY created_at DESC",
     );
-    let posts = rs.rows.map((r) => toPost(r, counts.get(Number(r.id)) ?? 0));
+    let posts = rs.rows.map((r) => toPublicPost(r, counts.get(Number(r.id)) ?? 0));
     posts = posts.filter((p) => matchesFilters(p, filters));
     posts = sortPosts(posts, filters.sort);
     return json({ posts: posts.slice(0, limit) });

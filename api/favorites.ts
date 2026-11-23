@@ -4,6 +4,20 @@
 import { getDb, ensureSchema } from "../lib/db.js";
 import { applicationCounts, badRequest, json, readBody, toPost } from "../lib/posts.js";
 
+// Public posts never carry a full phone number: the masked form
+// (017XX-XXX123) is returned instead, server-side — same as api/posts.ts.
+/** Masks a phone number: 01700123456 -> 017XX-XXX123. */
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return "***";
+  return `${digits.slice(0, 3)}XX-XXX${digits.slice(-3)}`;
+}
+
+function toPublicPost(row: Record<string, unknown>, applicationCount: number) {
+  const post = toPost(row, applicationCount);
+  return { ...post, phone: maskPhone(post.phone) };
+}
+
 export async function GET(): Promise<Response> {
   try {
     await ensureSchema();
@@ -13,7 +27,7 @@ export async function GET(): Promise<Response> {
     if (ids.length === 0) return json({ posts: [], favoriteIds: [] });
     const counts = await applicationCounts();
     const rows = await db.execute("SELECT * FROM posts WHERE status = 'approved'");
-    const byId = new Map(rows.rows.map((r) => [Number(r.id), toPost(r, counts.get(Number(r.id)) ?? 0)]));
+    const byId = new Map(rows.rows.map((r) => [Number(r.id), toPublicPost(r, counts.get(Number(r.id)) ?? 0)]));
     const posts = ids.map((id) => byId.get(id)).filter(Boolean);
     return json({ posts, favoriteIds: ids });
   } catch (e) {

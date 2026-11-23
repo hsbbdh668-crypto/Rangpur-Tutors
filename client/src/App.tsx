@@ -23,6 +23,7 @@ timeAgo,
 type Post,
 } from "./lib";
 import { useLang } from "./i18n";
+import { TUTOR_TOKEN_KEY, type CommissionStatus } from "./api.rest";
 import barakaLogo from "./assets/baraka-logo.webp";
 import {
   IconAlert,
@@ -35,9 +36,11 @@ import {
   IconCheckCircle,
   IconClock,
   IconExternal,
+  IconFacebook,
   IconGradCap,
   IconHeart,
   IconHome,
+  IconInstagram,
   IconLock,
   IconMail,
   IconMegaphone,
@@ -53,6 +56,7 @@ import {
   IconStar,
   IconTrash,
   IconUser,
+  IconWhatsApp,
   IconWrench,
   IconX,
 } from "./icons";
@@ -65,9 +69,28 @@ type AdminStats = ApiResponse<typeof api, "adminStats">;
 type AdminApplication = ApiResponse<typeof api, "adminListApplications">["applications"][number];
 type AdminReport = ApiResponse<typeof api, "adminListReports">["reports"][number];
 type ChatMessage = ApiResponse<typeof api, "chatPoll">["messages"][number];
+type TutorProfile = ApiResponse<typeof api, "tutorMe">["tutor"];
+type TutorMyApplications = ApiResponse<typeof api, "tutorMyApplications">;
 
-type Tab = "board" | "post" | "favorites" | "admin";
+type View = "home" | "board" | "post" | "favorites" | "admin" | "about" | "trust" | "legal" | "signup" | "login" | "dashboard";
 type KindFilter = "all" | "guardian" | "tutor";
+
+/* University cards on the landing page filter the board by institution.
+   Aliases cover the English name and the Bangla name as tutors write it. */
+const UNI_ALIASES: Record<string, string[]> = {
+  BUET: ["buet", "বুয়েট"],
+  "University of Dhaka": ["dhaka university", "ঢাকা বিশ্ববিদ্যালয়", "university of dhaka"],
+  "Dhaka Medical College": ["dhaka medical", "ঢাকা মেডিকেল", "medical college"],
+  "Jahangirnagar University": ["jahangirnagar", "জাহাঙ্গীরনগর"],
+  "BRAC University": ["brac", "ব্র্যাক"],
+  "North South University": ["north south", "নর্থ সাউথ", "nsu"],
+};
+
+function matchesUniversity(institution: string, uniName: string): boolean {
+  const hay = institution.toLowerCase();
+  const aliases = UNI_ALIASES[uniName] ?? [uniName.toLowerCase()];
+  return aliases.some((a) => hay.includes(a));
+}
 
 interface BoardFilters {
   kind: KindFilter;
@@ -293,14 +316,21 @@ function PostCard({
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
         <span className="text-base font-bold text-[var(--accent-strong)]">{salaryText(post, lang)}</span>
         {preview ? null : (
-          <div className="flex flex-wrap gap-2">
-            <a
-              href={`tel:${post.phone.replace(/\s/g, "")}`}
-              aria-label={t("callAria", { name: post.authorName })}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Middleman: the author's number is masked server-side
+                (017XX-XXX123) and there is no direct call button — the
+                full number is revealed only after an application is
+                accepted. Tapping here opens the detail + apply flow. */}
+            <span className="inline-flex items-center text-sm font-semibold text-[var(--dim)]">
+              <IconPhone className="mr-1 inline h-4 w-4 align-[-2px]" /> {post.phone}
+            </span>
+            <button
+              type="button"
+              onClick={() => onOpen(post)}
               className="rounded-full border border-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-[var(--accent-strong)]"
             >
-              <IconPhone className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("callBtn")}
-            </a>
+              {t("applyToSeeContactBtn")}
+            </button>
             <button
               type="button"
               onClick={() => onOpen(post)}
@@ -321,10 +351,14 @@ function Board({
   filters,
   setFilters,
   onOpen,
+  institutionFilter,
+  onClearInstitution,
 }: {
   filters: BoardFilters;
   setFilters: (f: BoardFilters) => void;
   onOpen: (post: Post) => void;
+  institutionFilter?: string | null;
+  onClearInstitution?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { lang, t } = useLang();
@@ -406,7 +440,12 @@ function Board({
   });
 
   const favIds = new Set(favIdsQuery.data?.favoriteIds ?? []);
-  const posts = postsQuery.data?.posts ?? [];
+  const allPosts = postsQuery.data?.posts ?? [];
+  /* University filter from the landing page: match the tutor's institution
+     against the university's name/aliases, on the already-loaded posts. */
+  const posts = institutionFilter
+    ? allPosts.filter((p) => matchesUniversity(p.institution ?? "", institutionFilter))
+    : allPosts;
   const activeFilterCount = [
     filters.subject,
     filters.classLevel,
@@ -701,6 +740,21 @@ function Board({
 
       {/* Results */}
       <div className="mt-4">
+        {institutionFilter ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-soft)] py-1 pl-3 pr-1 text-sm font-medium text-[var(--accent-strong)]">
+              <IconGradCap className="h-4 w-4" /> {t("uniFilterActive", { name: institutionFilter })}
+              <button
+                type="button"
+                aria-label={t("closeAria")}
+                onClick={onClearInstitution}
+                className="rounded-full px-1.5 text-base leading-none"
+              >
+                ×
+              </button>
+            </span>
+          </div>
+        ) : null}
         {postsQuery.isPending ? (
           <p className="py-10 text-center text-[var(--dim)]">{t("loadingPosts")}</p>
         ) : postsQuery.isError ? (
@@ -753,6 +807,7 @@ function PostDetail({
   const [reportDetails, setReportDetails] = useState("");
   const [reportError, setReportError] = useState("");
   const [reportDone, setReportDone] = useState(false);
+  const applyRef = useRef<HTMLDivElement | null>(null);
   const { lang, t } = useLang();
   const num = (n: number | string) => fmtNum(n, lang);
 
@@ -888,13 +943,20 @@ function PostDetail({
           </div>
         ) : null}
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <a
-            href={`tel:${post.phone.replace(/\s/g, "")}`}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          {/* Middleman: masked number only (server-side), no direct call.
+              The full number is revealed only after an application is
+              accepted — apply below to start that. */}
+          <span className="inline-flex flex-1 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-base font-semibold text-[var(--text)]">
+            <IconPhone className="mr-1 inline h-4 w-4 align-[-2px]" /> {post.phone}
+          </span>
+          <button
+            type="button"
+            onClick={() => applyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
             className="flex-1 rounded-full bg-[var(--accent)] px-4 py-2.5 text-center text-base font-semibold text-white"
           >
-            <IconPhone className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("callNow", { phone: post.phone })}
-          </a>
+            {t("applyToSeeContactBtn")}
+          </button>
           <button
             type="button"
             aria-pressed={isFavorite}
@@ -913,8 +975,12 @@ function PostDetail({
           </button>
         </div>
 
+        <p className="mt-2 text-xs leading-relaxed text-[var(--dim)]">
+          <IconLock className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("maskedContactNote")}
+        </p>
+
         {/* Apply / contact */}
-        <div className="mt-6 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <div ref={applyRef} className="mt-6 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
           <h3 className="text-base font-bold text-[var(--text)]">
             {isGuardian ? t("applyHeadingGuardian") : t("applyHeadingTutor")}
           </h3>
@@ -973,6 +1039,10 @@ function PostDetail({
             </form>
           )}
         </div>
+
+        {/* Guardian's own applications (no account): proved by the phone
+            number they posted with — see GuardianApplications below. */}
+        {isGuardian ? <GuardianApplications postId={post.id} /> : null}
 
         {/* Report */}
         <div className="mt-4 text-center">
@@ -1053,16 +1123,165 @@ function PostDetail({
   );
 }
 
+/* ---------------- guardian applications (no account) ----------------
+   On a guardian post's detail view: the guardian enters the phone
+   number they posted with. The server checks it against the post's
+   stored phone and, on a match, returns the applications — applicant
+   phones masked, except the FULL number once an application is
+   accepted. The guardian can accept/reject here; accepting is what
+   reveals the tutor's full phone to them. No login or session. */
+
+function GuardianApplications({ postId }: { postId: number }) {
+  const { lang, t } = useLang();
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState("");
+  const [apps, setApps] = useState<ApiResponse<
+    typeof api,
+    "guardianViewApplications"
+  >["applications"] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [actingId, setActingId] = useState<number | null>(null);
+
+  const load = async (p: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.guardianViewApplications({ postId, phone: p.trim() });
+      setApps(res.applications);
+    } catch {
+      setError(t("guardianAppsWrongPhone"));
+      setApps(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setStatus = async (applicationId: number, status: "accepted" | "rejected") => {
+    setActingId(applicationId);
+    setError("");
+    try {
+      await api.guardianSetApplicationStatus({
+        postId,
+        phone: phone.trim(),
+        applicationId,
+        status,
+      });
+      await load(phone);
+    } catch {
+      setError(t("guardianAppsFail"));
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const statusLabel = (s: "new" | "contacted" | "accepted" | "rejected") =>
+    s === "new"
+      ? t("appStatusNew")
+      : s === "contacted"
+        ? t("appStatusContacted")
+        : s === "accepted"
+          ? t("appStatusAccepted")
+          : t("appStatusRejected");
+
+  return (
+    <div className="mt-4 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+      <h3 className="text-base font-bold text-[var(--text)]">{t("guardianAppsTitle")}</h3>
+      <p className="mt-1 text-sm text-[var(--dim)]">{t("guardianAppsBody")}</p>
+      <form
+        className="mt-3 flex flex-col gap-2 sm:flex-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!phone.trim()) return setError(t("errEnterPhone"));
+          void load(phone);
+        }}
+      >
+        <input
+          type="tel"
+          className={`${inputCls} flex-1`}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="01XXXXXXXXX"
+          aria-label={t("mobileNumber")}
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {loading ? t("sending") : t("guardianAppsBtn")}
+        </button>
+      </form>
+      {error ? <p className="mt-2 text-sm text-[var(--danger)]">{error}</p> : null}
+      {apps ? (
+        apps.length === 0 ? (
+          <p className="mt-3 text-sm text-[var(--dim)]">{t("guardianAppsEmpty")}</p>
+        ) : (
+          <div className="mt-3 grid grid-cols-1 gap-3">
+            {apps.map((a) => (
+              <article
+                key={a.id}
+                className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] p-3"
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Chip tone={a.status === "new" ? "amber" : a.status === "accepted" ? "green" : "soft"}>
+                    {statusLabel(a.status)}
+                  </Chip>
+                  <span className="ml-auto text-xs text-[var(--dim)]">{fullDate(a.createdAt, lang)}</span>
+                </div>
+                <p className="mt-2 text-sm text-[var(--text)]">
+                  {a.applicantName} ·{" "}
+                  {a.applicantPhone ? (
+                    <a
+                      className="font-semibold text-[var(--accent-strong)]"
+                      href={`tel:${a.applicantPhone.replace(/\s/g, "")}`}
+                    >
+                      {a.applicantPhone}
+                    </a>
+                  ) : (
+                    <span className="font-semibold">{a.applicantPhoneMasked}</span>
+                  )}
+                </p>
+                {a.message ? <p className="mt-1 text-sm text-[var(--dim)]">“{a.message}”</p> : null}
+                {a.status === "accepted" ? null : (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={actingId === a.id}
+                      onClick={() => void setStatus(a.id, "accepted")}
+                      className="rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {t("markAcceptedBtn")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actingId === a.id}
+                      onClick={() => void setStatus(a.id, "rejected")}
+                      className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-sm font-semibold text-[var(--text)] disabled:opacity-60"
+                    >
+                      {t("markRejectedBtn")}
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        )
+      ) : null}
+    </div>
+  );
+}
+
 /* ---------------- create post ---------------- */
 
-function PostForm({ onDone }: { onDone: () => void }) {
+function PostForm({ onDone, initialKind = "guardian", prefill }: { onDone: () => void; initialKind?: "guardian" | "tutor"; prefill?: { name: string; phone: string } | null }) {
   const { lang, t } = useLang();
   const num = (n: number | string) => fmtNum(n, lang);
   const queryClient = useQueryClient();
   const configQuery = useQuery({ queryKey: ["config"], queryFn: () => api.getConfig({}) });
-  const [kind, setKind] = useState<"guardian" | "tutor">("guardian");
-  const [authorName, setAuthorName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [kind, setKind] = useState<"guardian" | "tutor">(initialKind);
+  /* Logged-in tutors get their name/phone prefilled on tutor-kind posts. */
+  const [authorName, setAuthorName] = useState(prefill?.name ?? "");
+  const [phone, setPhone] = useState(prefill?.phone ?? "");
   const [title, setTitle] = useState("");
   const [subjects, setSubjects] = useState<string[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
@@ -1505,6 +1724,998 @@ function Favorites({ onOpen }: { onOpen: (post: Post) => void }) {
           onToggleFavorite={(post) => favMutation.mutate(post)}
         />
       ))}
+    </div>
+  );
+}
+
+/* ---------------- tutor accounts ---------------- */
+
+/** Backend errors already arrive in Bengali — show them verbatim. */
+function errText(e: unknown, fallback: string): string {
+  return e instanceof Error && e.message ? e.message : fallback;
+}
+
+function TutorSignup({
+  onAuthed,
+  onGoLogin,
+}: {
+  onAuthed: (tutor: TutorProfile, token: string) => void;
+  onGoLogin: () => void;
+}) {
+  const { lang, t } = useLang();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [university, setUniversity] = useState("");
+  const [department, setDepartment] = useState("");
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [classes, setClasses] = useState<string[]>([]);
+  const [areas, setAreas] = useState<string[]>([]);
+  const [experience, setExperience] = useState("");
+  const [fees, setFees] = useState("");
+  const [gender, setGender] = useState<"male" | "female" | "other">("male");
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [error, setError] = useState("");
+
+  const toggle = (list: string[], setList: (v: string[]) => void) => (value: string) =>
+    setList(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+
+  const mutation = useMutation({
+    mutationFn: async () =>
+      await api.tutorSignup({
+        name: name.trim(),
+        phone: phone.trim(),
+        password,
+        university: university.trim(),
+        department: department.trim(),
+        subjects,
+        classes,
+        areas,
+        experience: experience.trim(),
+        fees: fees.trim(),
+        gender,
+        photoUrl: photoUrl.trim() || null,
+      }),
+    onSuccess: (res) => onAuthed(res.tutor, res.token),
+    onError: (e) => setError(errText(e, t("genericFail"))),
+  });
+
+  return (
+    <div className="mx-auto max-w-2xl rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+      <h2 className="text-xl font-bold text-[var(--text)]">
+        <IconGradCap className="mr-2 inline h-5 w-5 align-[-3px] text-[var(--accent-strong)]" />
+        {t("tutorSignupTitle")}
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--dim)]">{t("tutorSignupSub")}</p>
+      <form
+        className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setError("");
+          mutation.mutate();
+        }}
+      >
+        <FormSection title={t("secIdentity")}>
+          <Field label={t("yourNameStar")}>
+            <input
+              {...FIELDS.tutorSignup.name}
+              className={inputCls}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("nameExample")}
+              autoComplete="name"
+            />
+          </Field>
+          <Field label={t("mobileStar")} hint={t("mobileHint")}>
+            <input
+              {...FIELDS.tutorSignup.phone}
+              type="tel"
+              className={inputCls}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="01XXXXXXXXX"
+              autoComplete="tel"
+            />
+          </Field>
+          <Field label={t("fPassword")} hint={t("passwordHint")}>
+            <input
+              {...FIELDS.tutorSignup.password}
+              type="password"
+              className={inputCls}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </Field>
+          <Field label={t("yourGenderLabel")}>
+            <select
+              aria-label={t("yourGenderLabel")}
+              className={selectCls}
+              value={gender}
+              onChange={(e) => setGender(e.target.value as typeof gender)}
+            >
+              <option value="male">{t("maleOpt")}</option>
+              <option value="female">{t("femaleOpt")}</option>
+              <option value="other">{t("genderOtherOpt")}</option>
+            </select>
+          </Field>
+        </FormSection>
+        <FormSection title={t("secSubjects")}>
+          <div className="sm:col-span-2">
+            <Field label={t("subjectsStar")}>
+              <ToggleChips
+                options={SUBJECTS}
+                selected={subjects}
+                onToggle={toggle(subjects, setSubjects)}
+                ariaLabel={t("chooseSubjectsAria")}
+                labelOf={(v) => subjectLabel(v, lang)}
+              />
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field label={t("classesStar")}>
+              <ToggleChips
+                options={CLASSES}
+                selected={classes}
+                onToggle={toggle(classes, setClasses)}
+                ariaLabel={t("chooseClassesAria")}
+                labelOf={(v) => classLabel(v, lang)}
+              />
+            </Field>
+          </div>
+        </FormSection>
+        <FormSection title={t("secArea")}>
+          <div className="sm:col-span-2">
+            <Field label={t("areasLabel")}>
+              <ToggleChips
+                options={AREAS}
+                selected={areas}
+                onToggle={toggle(areas, setAreas)}
+                ariaLabel={t("chooseAreasAria")}
+                labelOf={(v) => areaLabel(v, lang)}
+              />
+            </Field>
+          </div>
+        </FormSection>
+        <FormSection title={t("secDetails")}>
+          <Field label={t("universityLabel")}>
+            <input
+              {...FIELDS.tutorSignup.university}
+              className={inputCls}
+              value={university}
+              onChange={(e) => setUniversity(e.target.value)}
+              placeholder={t("universityPh")}
+            />
+          </Field>
+          <Field label={t("departmentLabel")}>
+            <input
+              {...FIELDS.tutorSignup.department}
+              className={inputCls}
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              placeholder={t("departmentPh")}
+            />
+          </Field>
+          <Field label={t("experienceLabel")}>
+            <input
+              {...FIELDS.tutorSignup.experience}
+              className={inputCls}
+              value={experience}
+              onChange={(e) => setExperience(e.target.value)}
+              placeholder={t("experiencePh")}
+            />
+          </Field>
+          <Field label={t("feesLabel")}>
+            <input
+              {...FIELDS.tutorSignup.fees}
+              className={inputCls}
+              value={fees}
+              onChange={(e) => setFees(e.target.value)}
+              placeholder={t("feesPh")}
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label={t("photoUrlLabel")} hint={t("photoUrlHint")}>
+              <input
+                {...FIELDS.tutorSignup.photoUrl}
+                type="url"
+                className={inputCls}
+                value={photoUrl}
+                onChange={(e) => setPhotoUrl(e.target.value)}
+                placeholder="https://…"
+              />
+            </Field>
+          </div>
+        </FormSection>
+        {error ? <p className="text-sm font-medium text-[var(--danger)] sm:col-span-2">{error}</p> : null}
+        <button
+          type="submit"
+          disabled={mutation.isPending}
+          className="rounded-full bg-[var(--accent)] px-5 py-3 text-base font-bold text-white disabled:opacity-60 sm:col-span-2"
+        >
+          {mutation.isPending ? t("creatingAccount") : t("signupBtn")}
+        </button>
+      </form>
+      <p className="mt-4 text-center text-sm text-[var(--dim)]">
+        {t("alreadyHaveAccount")}{" "}
+        <button type="button" onClick={onGoLogin} className="font-semibold text-[var(--accent-strong)] underline">
+          {t("goToLoginBtn")}
+        </button>
+      </p>
+    </div>
+  );
+}
+
+function TutorLogin({
+  onAuthed,
+  onGoSignup,
+}: {
+  onAuthed: (tutor: TutorProfile, token: string) => void;
+  onGoSignup: () => void;
+}) {
+  const { t } = useLang();
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: async () =>
+      await api.tutorLogin({ phone: phone.trim(), password }),
+    onSuccess: (res) => onAuthed(res.tutor, res.token),
+    onError: (e) => setError(errText(e, t("genericFail"))),
+  });
+
+  return (
+    <div className="mx-auto max-w-md rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-6">
+      <h2 className="text-xl font-bold text-[var(--text)]">
+        <IconUser className="mr-2 inline h-5 w-5 align-[-3px] text-[var(--accent-strong)]" />
+        {t("tutorLoginTitle")}
+      </h2>
+      <p className="mt-2 text-sm text-[var(--dim)]">{t("tutorLoginSub")}</p>
+      <form
+        className="mt-4 grid gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setError("");
+          mutation.mutate();
+        }}
+      >
+        <Field label={t("mobileNumber")}>
+          <input
+            {...FIELDS.tutorLogin.phone}
+            type="tel"
+            className={inputCls}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="01XXXXXXXXX"
+            autoComplete="tel"
+          />
+        </Field>
+        <Field label={t("fPassword")}>
+          <input
+            {...FIELDS.tutorLogin.password}
+            type="password"
+            className={inputCls}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </Field>
+        {error ? <p className="text-sm font-medium text-[var(--danger)]">{error}</p> : null}
+        <button
+          type="submit"
+          disabled={mutation.isPending}
+          className="rounded-full bg-[var(--accent)] px-5 py-2.5 font-semibold text-white disabled:opacity-60"
+        >
+          {mutation.isPending ? t("loggingIn") : t("loginBtn")}
+        </button>
+      </form>
+      <p className="mt-4 text-center text-sm text-[var(--dim)]">
+        {t("noAccountYet")}{" "}
+        <button type="button" onClick={onGoSignup} className="font-semibold text-[var(--accent-strong)] underline">
+          {t("goToSignupBtn")}
+        </button>
+      </p>
+    </div>
+  );
+}
+
+function TutorEditProfile({
+  tutor,
+  token,
+  onDone,
+  onCancel,
+}: {
+  tutor: TutorProfile;
+  token: string;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const { lang, t } = useLang();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(tutor.name);
+  const [phone, setPhone] = useState(tutor.phone);
+  const [university, setUniversity] = useState(tutor.university);
+  const [department, setDepartment] = useState(tutor.department);
+  const [subjects, setSubjects] = useState<string[]>(tutor.subjects);
+  const [classes, setClasses] = useState<string[]>(tutor.classes);
+  const [areas, setAreas] = useState<string[]>(tutor.areas);
+  const [experience, setExperience] = useState(tutor.experience);
+  const [fees, setFees] = useState(tutor.fees);
+  const [gender, setGender] = useState<"male" | "female" | "other">(tutor.gender);
+  const [photoUrl, setPhotoUrl] = useState(tutor.photoUrl ?? "");
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const toggle = (list: string[], setList: (v: string[]) => void) => (value: string) =>
+    setList(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+
+  const mutation = useMutation({
+    mutationFn: async () =>
+      await api.tutorUpdateProfile({
+        token,
+        name: name.trim(),
+        phone: phone.trim(),
+        university: university.trim(),
+        department: department.trim(),
+        subjects,
+        classes,
+        areas,
+        experience: experience.trim(),
+        fees: fees.trim(),
+        gender,
+        photoUrl: photoUrl.trim() || null,
+      }),
+    onSuccess: () => {
+      setSaved(true);
+      void queryClient.invalidateQueries({ queryKey: ["tutorMe"] });
+      onDone();
+    },
+    onError: (e) => setError(errText(e, t("genericFail"))),
+  });
+
+  return (
+    <form
+      className="mt-4 grid grid-cols-1 gap-4 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 sm:grid-cols-2 sm:p-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError("");
+        mutation.mutate();
+      }}
+    >
+      <FormSection title={t("secIdentity")}>
+        <Field label={t("yourNameStar")}>
+          <input
+            {...FIELDS.tutorUpdateProfile.name}
+            className={inputCls}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </Field>
+        <Field label={t("mobileStar")}>
+          <input
+            {...FIELDS.tutorUpdateProfile.phone}
+            type="tel"
+            className={inputCls}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="01XXXXXXXXX"
+          />
+        </Field>
+        <Field label={t("yourGenderLabel")}>
+          <select
+            aria-label={t("yourGenderLabel")}
+            className={selectCls}
+            value={gender}
+            onChange={(e) => setGender(e.target.value as typeof gender)}
+          >
+            <option value="male">{t("maleOpt")}</option>
+            <option value="female">{t("femaleOpt")}</option>
+            <option value="other">{t("genderOtherOpt")}</option>
+          </select>
+        </Field>
+        <Field label={t("photoUrlLabel")} hint={t("photoUrlHint")}>
+          <input
+            {...FIELDS.tutorUpdateProfile.photoUrl}
+            type="url"
+            className={inputCls}
+            value={photoUrl}
+            onChange={(e) => setPhotoUrl(e.target.value)}
+            placeholder="https://…"
+          />
+        </Field>
+      </FormSection>
+      <FormSection title={t("secSubjects")}>
+        <div className="sm:col-span-2">
+          <Field label={t("subjectsStar")}>
+            <ToggleChips
+              options={SUBJECTS}
+              selected={subjects}
+              onToggle={toggle(subjects, setSubjects)}
+              ariaLabel={t("chooseSubjectsAria")}
+              labelOf={(v) => subjectLabel(v, lang)}
+            />
+          </Field>
+        </div>
+        <div className="sm:col-span-2">
+          <Field label={t("classesStar")}>
+            <ToggleChips
+              options={CLASSES}
+              selected={classes}
+              onToggle={toggle(classes, setClasses)}
+              ariaLabel={t("chooseClassesAria")}
+              labelOf={(v) => classLabel(v, lang)}
+            />
+          </Field>
+        </div>
+      </FormSection>
+      <FormSection title={t("secArea")}>
+        <div className="sm:col-span-2">
+          <Field label={t("areasLabel")}>
+            <ToggleChips
+              options={AREAS}
+              selected={areas}
+              onToggle={toggle(areas, setAreas)}
+              ariaLabel={t("chooseAreasAria")}
+              labelOf={(v) => areaLabel(v, lang)}
+            />
+          </Field>
+        </div>
+      </FormSection>
+      <FormSection title={t("secDetails")}>
+        <Field label={t("universityLabel")}>
+          <input
+            {...FIELDS.tutorUpdateProfile.university}
+            className={inputCls}
+            value={university}
+            onChange={(e) => setUniversity(e.target.value)}
+            placeholder={t("universityPh")}
+          />
+        </Field>
+        <Field label={t("departmentLabel")}>
+          <input
+            {...FIELDS.tutorUpdateProfile.department}
+            className={inputCls}
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            placeholder={t("departmentPh")}
+          />
+        </Field>
+        <Field label={t("experienceLabel")}>
+          <input
+            {...FIELDS.tutorUpdateProfile.experience}
+            className={inputCls}
+            value={experience}
+            onChange={(e) => setExperience(e.target.value)}
+            placeholder={t("experiencePh")}
+          />
+        </Field>
+        <Field label={t("feesLabel")}>
+          <input
+            {...FIELDS.tutorUpdateProfile.fees}
+            className={inputCls}
+            value={fees}
+            onChange={(e) => setFees(e.target.value)}
+            placeholder={t("feesPh")}
+          />
+        </Field>
+      </FormSection>
+      {error ? <p className="text-sm font-medium text-[var(--danger)] sm:col-span-2">{error}</p> : null}
+      {saved ? (
+        <p className="text-sm font-medium text-[var(--accent-strong)] sm:col-span-2">
+          <IconCheckCircle className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("profileSavedMsg")}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2 sm:col-span-2">
+        <button
+          type="submit"
+          disabled={mutation.isPending}
+          className="rounded-full bg-[var(--accent)] px-5 py-2.5 font-semibold text-white disabled:opacity-60"
+        >
+          {mutation.isPending ? t("saving") : t("saveBtn")}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-full border border-[var(--border)] px-5 py-2.5 font-semibold text-[var(--dim)]"
+        >
+          {t("cancelBtn")}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Client-side mirror of the server mask (01700123456 -> 017XX-XXX123),
+    used only to match the tutor's own posts: public posts arrive with
+    the phone already masked, so "My offers" compares masked forms. */
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return "***";
+  return `${digits.slice(0, 3)}XX-XXX${digits.slice(-3)}`;
+}
+
+function TutorDashboard({
+  tutor,
+  token,
+  onLogout,
+  onOpenPost,
+  onNewOffer,
+}: {
+  tutor: TutorProfile;
+  token: string;
+  onLogout: () => void;
+  onOpenPost: (post: Post) => void;
+  onNewOffer: () => void;
+}) {
+  const { lang, t } = useLang();
+  const num = (n: number | string) => fmtNum(n, lang);
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<"profile" | "offers" | "apps">("profile");
+  const [editing, setEditing] = useState(false);
+
+  const favIdsQuery = useQuery({
+    queryKey: ["favoriteIds"],
+    queryFn: () => api.listFavoriteIds({}),
+  });
+  const favIds = new Set(favIdsQuery.data?.favoriteIds ?? []);
+  const favMutation = useMutation({
+    mutationFn: async (post: Post) => await api.toggleFavorite({ postId: post.id }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["favoriteIds"] });
+      void queryClient.invalidateQueries({ queryKey: ["favorites"] });
+    },
+  });
+
+  const offersQuery = useQuery({
+    queryKey: ["tutorOffers", tutor.phone],
+    queryFn: () => api.listPosts({ kind: "tutor", limit: 100 }),
+    enabled: tab === "offers",
+  });
+  /* "My offers" is linked by phone: the tutor's own tutor-kind posts are
+     the approved posts whose phone matches the account phone. No tutor_id
+     column exists — phone matching is the linkage (see report). Public
+     posts arrive with the phone masked server-side, so the account
+     phone is masked the same way before comparing. */
+  const myOffers = (offersQuery.data?.posts ?? []).filter(
+    (p) => p.phone === maskPhone(tutor.phone),
+  );
+
+  const appsQuery = useQuery({
+    queryKey: ["tutorMyApplications", token],
+    queryFn: () => api.tutorMyApplications({ token }),
+    enabled: tab === "apps",
+  });
+  const apps: TutorMyApplications | undefined = appsQuery.data;
+
+  const openPostMutation = useMutation({
+    mutationFn: async (id: number) => await api.getPost({ id }),
+    onSuccess: (res) => {
+      if (res.post) onOpenPost(res.post);
+    },
+  });
+
+  const appStatusMutation = useMutation({
+    mutationFn: async (v: {
+      applicationId: number;
+      status: "contacted" | "accepted" | "rejected";
+    }) => await api.tutorSetApplicationStatus({ token, ...v }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tutorMyApplications", token] });
+    },
+  });
+
+  const appStatusLabel = (s: "new" | "contacted" | "accepted" | "rejected") =>
+    s === "new"
+      ? t("appStatusNew")
+      : s === "contacted"
+        ? t("appStatusContacted")
+        : s === "accepted"
+          ? t("appStatusAccepted")
+          : t("appStatusRejected");
+
+  const tabs = [
+    { v: "profile" as const, label: t("tabProfile") },
+    {
+      v: "offers" as const,
+      label: t("tabMyOffers") + (tab === "offers" ? ` (${num(myOffers.length)})` : ""),
+    },
+    {
+      v: "apps" as const,
+      label:
+        t("tabMyApps") +
+        (apps ? ` (${num(apps.sent.length + apps.received.length)})` : ""),
+    },
+  ];
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-bold text-[var(--text)]">
+          <IconUser className="mr-2 inline h-5 w-5 align-[-3px] text-[var(--accent-strong)]" />
+          {t("tutorDashboardTitle")}
+        </h2>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="rounded-full border border-[var(--border)] px-4 py-1.5 text-sm font-semibold text-[var(--dim)]"
+        >
+          {t("logoutBtn")}
+        </button>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label={t("navDashboard")}>
+        {tabs.map((tb) => (
+          <button
+            key={tb.v}
+            type="button"
+            role="tab"
+            aria-selected={tab === tb.v}
+            onClick={() => setTab(tb.v)}
+            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+              tab === tb.v ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-2)] text-[var(--dim)]"
+            }`}
+          >
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "profile" ? (
+        <div>
+          <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-5">
+            <div className="flex flex-wrap items-start gap-4">
+              {tutor.photoUrl ? (
+                <img
+                  src={tutor.photoUrl}
+                  alt={tutor.name}
+                  className="h-20 w-20 shrink-0 rounded-full border border-[var(--border)] object-cover"
+                />
+              ) : (
+                <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+                  <IconUser className="h-10 w-10" />
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xl font-bold text-[var(--text)]">{tutor.name}</h3>
+                <p className="mt-0.5 text-sm text-[var(--dim)]">
+                  {tutor.university}
+                  {tutor.department ? ` · ${tutor.department}` : ""}
+                </p>
+                <p className="mt-0.5 text-sm text-[var(--dim)]">
+                  <IconPhone className="mr-1 inline h-4 w-4 align-[-2px]" /> {tutor.phone}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {tutor.verified ? (
+                    <Chip tone="green">
+                      <IconShieldCheck className="h-3.5 w-3.5" /> {t("verifiedTutorBadge")}
+                    </Chip>
+                  ) : (
+                    <Chip tone="amber">
+                      <IconClock className="h-3.5 w-3.5" /> {t("verificationPending")}
+                    </Chip>
+                  )}
+                  <Chip>
+                    {tutor.gender === "male"
+                      ? t("maleTeacherOpt")
+                      : tutor.gender === "female"
+                        ? t("femaleTeacherOpt")
+                        : t("genderOtherOpt")}
+                  </Chip>
+                </div>
+              </div>
+            </div>
+            {!tutor.verified ? (
+              <p className="mt-3 rounded-[var(--radius)] bg-[var(--amber-soft)] px-3 py-2.5 text-sm text-[var(--text)]">
+                {t("verificationPendingNote")}
+              </p>
+            ) : null}
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--dim)]">{t("subjectsStar")}</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {tutor.subjects.map((s) => (
+                    <Chip key={s}>{subjectLabel(s, lang)}</Chip>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--dim)]">{t("classesStar")}</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {tutor.classes.map((c) => (
+                    <Chip key={c}>{classLabel(c, lang)}</Chip>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--dim)]">{t("areasLabel")}</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {tutor.areas.map((a) => (
+                    <Chip key={a}>{areaLabel(a, lang)}</Chip>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[var(--dim)]">{t("feesRowLabel")}</p>
+                <p className="mt-1 text-sm font-medium text-[var(--text)]">
+                  {tutor.fees || t("notSpecified")}
+                </p>
+                {tutor.experience ? (
+                  <>
+                    <p className="mt-3 text-xs font-bold uppercase tracking-wide text-[var(--dim)]">{t("experienceLabel")}</p>
+                    <p className="mt-1 text-sm text-[var(--text)]">{tutor.experience}</p>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              className="mt-4 rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
+            >
+              <IconPen className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("editProfileBtn")}
+            </button>
+          </div>
+          {editing ? (
+            <TutorEditProfile
+              tutor={tutor}
+              token={token}
+              onDone={() => setEditing(false)}
+              onCancel={() => setEditing(false)}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {tab === "offers" ? (
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-lg font-bold text-[var(--text)]">{t("myOffersTitle")}</h3>
+            <button
+              type="button"
+              onClick={onNewOffer}
+              className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
+            >
+              <IconPlusCircle className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("newOfferBtn")}
+            </button>
+          </div>
+          {offersQuery.isPending ? (
+            <p className="py-8 text-center text-[var(--dim)]">{t("loadingShort")}</p>
+          ) : myOffers.length === 0 ? (
+            <EmptyState title={t("myOffersEmptyTitle")} body={t("myOffersEmptyBody")} />
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {myOffers.map((p) => (
+                <PostCard
+                  key={p.id}
+                  post={p}
+                  isFavorite={favIds.has(p.id)}
+                  onOpen={onOpenPost}
+                  onToggleFavorite={(post) => favMutation.mutate(post)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {tab === "apps" ? (
+        <div>
+          <h3 className="mb-3 text-lg font-bold text-[var(--text)]">{t("myAppsTitle")}</h3>
+          {appsQuery.isPending ? (
+            <p className="py-8 text-center text-[var(--dim)]">{t("loadingShort")}</p>
+          ) : appsQuery.isError ? (
+            <EmptyState title={t("loadFailTitle")} body={t("loadFailBody")} />
+          ) : (
+            <div className="grid grid-cols-1 gap-5">
+              <section>
+                <h4 className="mb-2 text-base font-bold text-[var(--text)]">{t("appsSentTitle")}</h4>
+                {(apps?.sent ?? []).length === 0 ? (
+                  <EmptyState title={t("noSentAppsTitle")} body={t("noSentAppsBody")} />
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {(apps?.sent ?? []).map((a) => (
+                      <article
+                        key={a.id}
+                        className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Chip tone={a.status === "new" ? "amber" : a.status === "accepted" ? "green" : "soft"}>
+                            {appStatusLabel(a.status)}
+                          </Chip>
+                          <span className="ml-auto text-xs text-[var(--dim)]">{fullDate(a.createdAt, lang)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openPostMutation.mutate(a.postId)}
+                          className="mt-2 text-left font-semibold text-[var(--accent-strong)] underline"
+                        >
+                          {a.postTitle || t("postColon")}
+                        </button>
+                        {/* The guardian's full phone is revealed only once
+                            this application is accepted; otherwise masked. */}
+                        <p className="mt-1 text-sm text-[var(--text)]">
+                          {t("contactRevealedLabel")}{" "}
+                          {a.postAuthorPhone ? (
+                            <a
+                              className="font-semibold text-[var(--accent-strong)]"
+                              href={`tel:${a.postAuthorPhone.replace(/\s/g, "")}`}
+                            >
+                              {a.postAuthorPhone}
+                            </a>
+                          ) : (
+                            <span className="font-semibold">{a.postAuthorPhoneMasked}</span>
+                          )}
+                        </p>
+                        {a.message ? <p className="mt-1 text-sm text-[var(--dim)]">“{a.message}”</p> : null}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+              <section>
+                <h4 className="mb-2 text-base font-bold text-[var(--text)]">{t("appsReceivedTitle")}</h4>
+                <p className="mb-2 text-xs leading-relaxed text-[var(--dim)]">
+                  <IconLock className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("maskedPhoneNote")}
+                </p>
+                {(apps?.received ?? []).length === 0 ? (
+                  <EmptyState title={t("noReceivedAppsTitle")} body={t("noReceivedAppsBody")} />
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {(apps?.received ?? []).map((a) => (
+                      <article
+                        key={a.id}
+                        className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Chip tone={a.status === "new" ? "amber" : a.status === "accepted" ? "green" : "soft"}>
+                            {appStatusLabel(a.status)}
+                          </Chip>
+                          <span className="ml-auto text-xs text-[var(--dim)]">{fullDate(a.createdAt, lang)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openPostMutation.mutate(a.postId)}
+                          className="mt-2 text-left font-semibold text-[var(--accent-strong)] underline"
+                        >
+                          {a.postTitle || t("postColon")}
+                        </button>
+                        <p className="mt-1 text-sm text-[var(--text)]">
+                          {t("applicantColon")} {a.applicantName} ·{" "}
+                          {a.applicantPhone ? (
+                            <a
+                              className="font-semibold text-[var(--accent-strong)]"
+                              href={`tel:${a.applicantPhone.replace(/\s/g, "")}`}
+                            >
+                              {a.applicantPhone}
+                            </a>
+                          ) : (
+                            <span className="font-semibold">{a.applicantPhoneMasked}</span>
+                          )}
+                        </p>
+                        {a.message ? <p className="mt-1 text-sm text-[var(--dim)]">“{a.message}”</p> : null}
+                        {a.status !== "accepted" && a.status !== "rejected" ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={appStatusMutation.isPending}
+                              onClick={() =>
+                                appStatusMutation.mutate({ applicationId: a.id, status: "accepted" })
+                              }
+                              className="rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+                            >
+                              {t("markAcceptedBtn")}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={appStatusMutation.isPending}
+                              onClick={() =>
+                                appStatusMutation.mutate({ applicationId: a.id, status: "rejected" })
+                              }
+                              className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-sm font-semibold text-[var(--text)] disabled:opacity-60"
+                            >
+                              {t("markRejectedBtn")}
+                            </button>
+                          </div>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ---------------- admin commission editor ----------------
+   Shown on accepted applications in the admin inbox. Commission is
+   tracking only — no rate is set anywhere, so the amount starts empty
+   and the admin fills it in, then marks it paid or waived. */
+
+function CommissionEditor({
+  application,
+  passcode,
+  onSaved,
+}: {
+  application: AdminApplication;
+  passcode: string;
+  onSaved: () => void;
+}) {
+  const { t } = useLang();
+  const [amount, setAmount] = useState(application.commissionAmount?.toString() ?? "");
+  const [status, setStatus] = useState<CommissionStatus>(application.commissionStatus);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: async () =>
+      await api.adminSetCommission({
+        passcode,
+        id: application.id,
+        amount: amount.trim() === "" ? null : Number(amount),
+        status,
+      }),
+    onSuccess: () => {
+      setSaved(true);
+      setError("");
+      onSaved();
+    },
+    onError: () => {
+      setSaved(false);
+      setError(t("commissionSaveFail"));
+    },
+  });
+
+  return (
+    <div className="mt-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] p-3">
+      <p className="text-sm font-bold text-[var(--text)]">{t("commissionLabel")}</p>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          aria-label={t("commissionAmountPh")}
+          placeholder={t("commissionAmountPh")}
+          className={`${inputCls} flex-1`}
+          value={amount}
+          onChange={(e) => {
+            setAmount(e.target.value);
+            setSaved(false);
+          }}
+        />
+        <select
+          aria-label={t("commissionLabel")}
+          className={selectCls}
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value as CommissionStatus);
+            setSaved(false);
+          }}
+        >
+          <option value="pending">{t("commissionPending")}</option>
+          <option value="paid">{t("commissionPaid")}</option>
+          <option value="waived">{t("commissionWaived")}</option>
+        </select>
+        <button
+          type="button"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+          className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {t("saveBtn")}
+        </button>
+      </div>
+      {amount.trim() === "" && !saved ? (
+        <p className="mt-1.5 text-xs text-[var(--dim)]">{t("commissionNotSet")}</p>
+      ) : null}
+      {saved ? (
+        <p className="mt-1.5 text-xs font-medium text-[var(--accent-strong)]">{t("commissionSaved")}</p>
+      ) : null}
+      {error ? <p className="mt-1.5 text-xs text-[var(--danger)]">{error}</p> : null}
     </div>
   );
 }
@@ -1961,6 +3172,9 @@ function AdminPanel() {
                   </a>
                 </p>
                 {a.message ? <p className="mt-1 text-sm text-[var(--dim)]">“{a.message}”</p> : null}
+                {a.status === "accepted" ? (
+                  <CommissionEditor application={a} passcode={passcode} onSaved={invalidateAdmin} />
+                ) : null}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(["contacted", "accepted", "rejected", "new"] as const).map((s) =>
                     a.status !== s ? (
@@ -2579,6 +3793,17 @@ function ChatWidget() {
 
   return (
     <>
+      {/* TODO: replace with owner's real WhatsApp link (he will provide it later).
+          Placeholder href="#" for now — do not invent a number or URL. */}
+      {open ? null : (
+        <a
+          href="#"
+          aria-label={t("whatsappAria")}
+          className="fixed bottom-[172px] right-3 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--whatsapp)] text-white shadow-[0_8px_24px_rgba(37,211,102,0.45)] ring-2 ring-white sm:bottom-[104px] sm:right-6"
+        >
+          <IconWhatsApp className="h-7 w-7" />
+        </a>
+      )}
       <button
         type="button"
         aria-label={t("chatOpenAria")}
@@ -2882,14 +4107,601 @@ function AdminChats({ passcode }: { passcode: string }) {
   );
 }
 
+/* ---------------- landing (Tasnim-style home) ---------------- */
+
+const UNIVERSITIES = [
+  "BUET",
+  "University of Dhaka",
+  "Dhaka Medical College",
+  "Jahangirnagar University",
+  "BRAC University",
+  "North South University",
+];
+
+function Home({
+  onFindTutor,
+  onBrowseJobs,
+  onBecomeTutor,
+  onSelectUni,
+}: {
+  onFindTutor: () => void;
+  onBrowseJobs: () => void;
+  onBecomeTutor: () => void;
+  onSelectUni: (name: string) => void;
+}) {
+  const { lang, t } = useLang();
+  const num = (n: number | string) => fmtNum(n, lang);
+  const statsQuery = useQuery({ queryKey: ["stats"], queryFn: () => api.getStats({}) });
+  const stats = statsQuery.data;
+  const totalPosts = stats?.totalPosts ?? (stats ? stats.guardianPosts + stats.tutorPosts : 0);
+
+  const statCards = [
+    { n: stats?.guardianPosts ?? 0, label: t("statGuardianPosts"), icon: <IconHome className="h-6 w-6" /> },
+    { n: stats?.tutorPosts ?? 0, label: t("statTutorOffers"), icon: <IconGradCap className="h-6 w-6" /> },
+    { n: totalPosts, label: t("statTotalPosts"), icon: <IconBoard className="h-6 w-6" /> },
+    { n: stats?.applications ?? 0, label: t("statTotalApps"), icon: <IconMail className="h-6 w-6" /> },
+  ];
+
+  const steps = [
+    { n: 1, icon: <IconPen className="h-8 w-8" />, title: t("step1Title"), desc: t("step1Desc") },
+    { n: 2, icon: <IconGradCap className="h-8 w-8" />, title: t("step2Title"), desc: t("step2Desc") },
+    { n: 3, icon: <IconCheckCircle className="h-8 w-8" />, title: t("step3Title"), desc: t("step3Desc") },
+    { n: 4, icon: <IconRocket className="h-8 w-8" />, title: t("step4Title"), desc: t("step4Desc") },
+  ];
+
+  const whyItems = [t("why1"), t("why2"), t("why3"), t("why4"), t("why5"), t("why6")];
+
+  return (
+    <div>
+      {/* Hero — blue gradient, no external photo dependency. */}
+      <section className="rounded-3xl bg-gradient-to-br from-[#35a5dc] via-[var(--accent)] to-[#0d5e8f] px-5 py-10 text-white sm:px-10 sm:py-14">
+        <span className="inline-block rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-xs font-semibold sm:text-sm">
+          {t("heroBadge")}
+        </span>
+        <h2 className="mt-4 max-w-2xl text-3xl font-extrabold leading-tight sm:text-5xl">
+          {t("heroTitleStart")}{" "}
+          <span className="text-[#ffd400]">{t("heroTitleAccent")}</span>{" "}
+          {t("heroTitleEnd")}
+        </h2>
+        <p className="mt-3 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
+          {t("heroSub")}
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onFindTutor}
+            className="rounded-full bg-[#ffd400] px-6 py-3 text-base font-bold text-[#1a1a1a] shadow-lg"
+          >
+            {t("heroFindBtn")} →
+          </button>
+          <button
+            type="button"
+            onClick={onBrowseJobs}
+            className="rounded-full border border-white/60 bg-white/15 px-6 py-3 text-base font-semibold text-white"
+          >
+            {t("heroJobsBtn")}
+          </button>
+        </div>
+        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 border-t border-white/25 pt-4 text-sm font-semibold">
+          <span><IconBoard className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("trustStripPosts", { n: num(totalPosts) })}</span>
+          <span><IconShieldCheck className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("trustStripVerified")}</span>
+          <span><IconPin className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("trustStripArea")}</span>
+        </div>
+      </section>
+
+      {/* Stats — 4 cards, numbers from live data only. */}
+      <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {statCards.map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(30,140,200,0.06)]"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+              {s.icon}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-xl font-bold leading-tight text-[var(--text)] sm:text-2xl">{num(s.n)}</span>
+              <span className="block text-xs leading-snug text-[var(--dim)] sm:text-sm">{s.label}</span>
+            </span>
+          </div>
+        ))}
+      </section>
+
+      {/* Tutors from top universities — 6 cards, tap to filter the board. */}
+      <section id="home-tutors" className="mt-14 scroll-mt-28 text-center">
+        <h2 className="text-2xl font-bold text-[var(--text)] sm:text-4xl">
+          {t("uniTitleA")} <span className="text-[var(--accent-strong)]">{t("uniTitleB")}</span>
+        </h2>
+        <p className="mx-auto mt-2 max-w-2xl text-sm text-[var(--dim)] sm:text-base">{t("uniSub")}</p>
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {UNIVERSITIES.map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => onSelectUni(u)}
+              className="flex flex-col items-center rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-5 shadow-[0_1px_2px_rgba(30,140,200,0.06)] transition-colors hover:border-[var(--accent)]"
+            >
+              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+                <IconGradCap className="h-8 w-8" />
+              </span>
+              <span className="mt-3 text-sm font-bold leading-snug text-[var(--text)] sm:text-base">{u}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* How it works — 4 steps + centred CTA. */}
+      <section className="mt-14 text-center">
+        <h2 className="text-2xl font-bold text-[var(--text)] sm:text-4xl">{t("howTitle")}</h2>
+        <p className="mt-2 text-sm text-[var(--dim)] sm:text-base">{t("howSub")}</p>
+        <div className="mt-6 grid grid-cols-1 gap-3 text-left sm:grid-cols-2 lg:grid-cols-4">
+          {steps.map((s) => (
+            <div
+              key={s.n}
+              className="relative rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-5 text-center shadow-[0_1px_2px_rgba(30,140,200,0.06)]"
+            >
+              <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-sm font-bold text-white">
+                {num(s.n)}
+              </span>
+              <p className="flex justify-center text-[var(--accent-strong)]">{s.icon}</p>
+              <h3 className="mt-3 text-base font-bold text-[var(--text)]">{s.title}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-[var(--dim)]">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onFindTutor}
+          className="mt-6 rounded-full bg-[var(--accent)] px-6 py-3 text-base font-bold text-white shadow-lg"
+        >
+          {t("requestTutorBtn")} →
+        </button>
+      </section>
+
+      {/* Why choose — dark navy banner, 2 columns. */}
+      <section className="mt-14 grid grid-cols-1 gap-6 rounded-3xl bg-[var(--navy)] px-5 py-8 text-white sm:px-8 sm:py-10 lg:grid-cols-2 lg:items-center">
+        <div>
+          <h2 className="text-2xl font-bold leading-tight sm:text-4xl">
+            {t("whyTitleA")} <span className="text-[#ffd400]">{t("whyTitleB")}</span>
+          </h2>
+          <p className="mt-3 max-w-md text-base leading-relaxed text-white/85">{t("whySub")}</p>
+          <button
+            type="button"
+            onClick={onBecomeTutor}
+            className="mt-5 rounded-full bg-[#ffd400] px-5 py-2.5 text-base font-bold text-[#1a1a1a]"
+          >
+            {t("becomeTutorBtn")}
+          </button>
+        </div>
+        <ul className="grid grid-cols-1 gap-2.5">
+          {whyItems.map((w) => (
+            <li
+              key={w}
+              className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm font-medium sm:text-base"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#ffd400] text-[#1a1a1a]">
+                <IconCheck className="h-4 w-4" />
+              </span>
+              {w}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Final CTA banner — dark navy, centred. */}
+      <section className="mt-6 rounded-3xl bg-[var(--navy-2)] px-5 py-10 text-center text-white sm:py-12">
+        <span className="inline-block rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-xs font-semibold sm:text-sm">
+          {t("ctaBadge")}
+        </span>
+        <h2 className="mt-4 text-2xl font-bold sm:text-4xl">{t("ctaTitle")}</h2>
+        <p className="mt-2 text-base text-white/85">{t("ctaSub")}</p>
+        <button
+          type="button"
+          onClick={onFindTutor}
+          className="mt-6 rounded-full bg-[var(--accent)] px-6 py-3 text-base font-bold text-white shadow-lg"
+        >
+          {t("ctaBtn")} →
+        </button>
+      </section>
+    </div>
+  );
+}
+
+/* ---------------- about ---------------- */
+
+function AboutView() {
+  const { t } = useLang();
+  return (
+    <div className="mx-auto max-w-3xl">
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-8">
+        <h2 className="text-2xl font-bold text-[var(--text)] sm:text-3xl">{t("aboutTitle")}</h2>
+        <p className="mt-4 text-base leading-relaxed text-[var(--text)]">{t("aboutBody1")}</p>
+        <p className="mt-3 text-base leading-relaxed text-[var(--text)]">{t("aboutBody2")}</p>
+        <div className="mt-6 rounded-[var(--radius)] bg-[var(--accent-soft)] px-4 py-4">
+          <p className="text-sm font-bold text-[var(--accent-strong)]">{t("aboutMissionLabel")}</p>
+          <p className="mt-1 text-base font-medium leading-relaxed text-[var(--text)]">
+            “{t("aboutMission")}”
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- trust check ---------------- */
+
+function TrustCheckView({ onOpen }: { onOpen: (post: Post) => void }) {
+  const { lang, t } = useLang();
+  const num = (n: number | string) => fmtNum(n, lang);
+  const [query, setQuery] = useState("");
+  const [searched, setSearched] = useState(false);
+  const postsQuery = useQuery({
+    queryKey: ["posts", "trust-check"],
+    queryFn: () => api.listPosts({ kind: "tutor", limit: 100 }),
+  });
+  const verified = (postsQuery.data?.posts ?? []).filter((p) => p.verified);
+  const q = query.trim().toLowerCase();
+  const qDigits = query.replace(/\D/g, "");
+  const results = !searched
+    ? verified
+    : verified.filter((p) => {
+        if (!q) return true;
+        const nameHit = p.authorName.toLowerCase().includes(q);
+        const phoneHit = qDigits.length >= 3 && p.phone.replace(/\D/g, "").includes(qDigits);
+        return nameHit || phoneHit;
+      });
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+        <p className="flex items-center gap-2 text-base font-bold text-[var(--text)]">
+          <IconShieldCheck className="h-6 w-6 text-[var(--accent-strong)]" /> {t("trustTitle")}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-[var(--dim)] sm:text-base">{t("trustSub")}</p>
+
+        <h3 className="mt-5 text-base font-bold text-[var(--text)]">{t("trustHowTitle")}</h3>
+        <ol className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {[t("trustHow1"), t("trustHow2"), t("trustHow3")].map((step, i) => (
+            <li key={step} className="rounded-[var(--radius)] bg-[var(--surface-2)] px-3 py-3 text-sm leading-relaxed text-[var(--text)]">
+              <span className="mb-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-bold text-white">
+                {num(i + 1)}
+              </span>
+              {step}
+            </li>
+          ))}
+        </ol>
+
+        <form
+          className="mt-5 flex flex-col gap-2 sm:flex-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setSearched(true);
+          }}
+        >
+          <label className="sr-only" htmlFor="trust-search">
+            {t("trustSearchPh")}
+          </label>
+          <input
+            id="trust-search"
+            type="search"
+            className={`${inputCls} flex-1`}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("trustSearchPh")}
+          />
+          <button
+            type="submit"
+            className="shrink-0 rounded-full bg-[var(--accent)] px-5 py-2.5 font-semibold text-white"
+          >
+            {t("trustSearchBtn")}
+          </button>
+        </form>
+
+        <div className="mt-5">
+          {postsQuery.isPending ? (
+            <p className="py-6 text-center text-sm text-[var(--dim)]">{t("loadingShort")}</p>
+          ) : verified.length === 0 ? (
+            <EmptyState title={t("trustNoneYet")} body={t("trustDisclaimer")} />
+          ) : (
+            <>
+              <p className="mb-3 text-sm font-semibold text-[var(--dim)]">
+                {searched
+                  ? t("trustResults", { n: num(results.length) })
+                  : `${t("trustAllVerified")} (${num(verified.length)})`}
+              </p>
+              {results.length === 0 ? (
+                <EmptyState title={t("trustNoResult")} body={t("trustDisclaimer")} />
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {results.map((p) => (
+                    <article
+                      key={p.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] p-4"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-[var(--text)]">{p.authorName}</p>
+                        <p className="mt-0.5 text-sm text-[var(--dim)]">
+                          {p.institution ? `${p.institution} · ` : ""}
+                          <IconPin className="inline h-3.5 w-3.5 align-[-2px]" /> {areaLabel(p.area, lang)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Chip tone="green">
+                          <IconShieldCheck className="h-3.5 w-3.5" /> {t("chipVerifiedTutor")}
+                        </Chip>
+                        <button
+                          type="button"
+                          onClick={() => onOpen(p)}
+                          className="rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-white"
+                        >
+                          {t("detailsBtn")}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <p className="mt-5 text-xs leading-relaxed text-[var(--dim)]">{t("trustDisclaimer")}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- legal ---------------- */
+
+function LegalView({
+  doc,
+  onChange,
+}: {
+  doc: "privacy" | "terms";
+  onChange: (d: "privacy" | "terms") => void;
+}) {
+  const { t } = useLang();
+  return (
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-4 flex gap-2" role="tablist" aria-label={t("footerLegal")}>
+        {(
+          [
+            { v: "privacy" as const, label: t("legalPrivacy") },
+            { v: "terms" as const, label: t("legalTerms") },
+          ]
+        ).map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            role="tab"
+            aria-selected={doc === o.v}
+            onClick={() => onChange(o.v)}
+            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+              doc === o.v ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-2)] text-[var(--dim)]"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+        <h2 className="text-xl font-bold text-[var(--text)]">
+          {doc === "privacy" ? t("legalPrivacy") : t("legalTerms")}
+        </h2>
+        <p className="mt-3 text-base leading-relaxed text-[var(--text)]">
+          {doc === "privacy" ? t("privacyP1") : t("termsP1")}
+        </p>
+        <p className="mt-3 text-base leading-relaxed text-[var(--text)]">
+          {doc === "privacy" ? t("privacyP2") : t("termsP2")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- dark footer ---------------- */
+
+function SiteFooter({
+  onNavigate,
+  onLegal,
+}: {
+  onNavigate: (v: View) => void;
+  onLegal: (d: "privacy" | "terms") => void;
+}) {
+  const { t } = useLang();
+  const quickLinks: { label: string; onClick: () => void }[] = [
+    { label: t("navHome"), onClick: () => onNavigate("home") },
+    { label: t("navBoard"), onClick: () => onNavigate("board") },
+    { label: t("navFindTutor"), onClick: () => onNavigate("post") },
+    { label: t("navJobs"), onClick: () => onNavigate("board") },
+    { label: t("navTrust"), onClick: () => onNavigate("trust") },
+    { label: t("navAbout"), onClick: () => onNavigate("about") },
+  ];
+  return (
+    <footer className="mt-14 bg-[var(--navy)] text-white">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <img
+              src={barakaLogo}
+              alt=""
+              className="h-12 w-12 rounded-xl bg-white object-contain p-1"
+            />
+            <p className="text-lg font-bold">{t("appName")}</p>
+          </div>
+          <p className="mt-3 text-sm leading-relaxed text-white/80">{t("footerLine1")}</p>
+          {/* TODO: replace with owner's real Facebook/Instagram/WhatsApp links
+              (he will provide them later). Placeholder href="#" for now —
+              do not invent URLs or a phone number. */}
+          <div className="mt-4 flex gap-2">
+            <a
+              href="#"
+              aria-label={t("socialFacebookAria")}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+            >
+              <IconFacebook className="h-5 w-5" />
+            </a>
+            <a
+              href="#"
+              aria-label={t("socialInstagramAria")}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+            >
+              <IconInstagram className="h-5 w-5" />
+            </a>
+            <a
+              href="#"
+              aria-label={t("socialWhatsAppAria")}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+            >
+              <IconWhatsApp className="h-5 w-5" />
+            </a>
+          </div>
+        </div>
+        <div>
+          <h3 className="text-base font-bold">{t("footerQuick")}</h3>
+          <ul className="mt-3 space-y-2 text-sm text-white/80">
+            {quickLinks.map((l) => (
+              <li key={l.label}>
+                <button type="button" onClick={l.onClick} className="hover:text-white hover:underline">
+                  {l.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h3 className="text-base font-bold">{t("footerContact")}</h3>
+          <p className="mt-3 text-sm leading-relaxed text-white/80">
+            <IconPin className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("footerContactLine1")}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-white/80">
+            <IconChat className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("footerChatLine")}
+          </p>
+        </div>
+        <div>
+          <h3 className="text-base font-bold">{t("footerLegal")}</h3>
+          <ul className="mt-3 space-y-2 text-sm text-white/80">
+            <li>
+              <button type="button" onClick={() => onLegal("privacy")} className="hover:text-white hover:underline">
+                {t("legalPrivacy")}
+              </button>
+            </li>
+            <li>
+              <button type="button" onClick={() => onLegal("terms")} className="hover:text-white hover:underline">
+                {t("legalTerms")}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-white/15 py-4 text-center text-xs text-white/70">
+        © 2026 Baraka Tutors
+      </div>
+    </footer>
+  );
+}
+
 /* ---------------- app shell ---------------- */
 
 export function App() {
   const { lang, setLang, t } = useLang();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>("board");
+  const [view, setView] = useState<View>("home");
+  const [postKind, setPostKind] = useState<"guardian" | "tutor">("guardian");
+  const [uniFilter, setUniFilter] = useState<string | null>(null);
+  const [legalDoc, setLegalDoc] = useState<"privacy" | "terms">("privacy");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [filters, setFilters] = useState<BoardFilters>(EMPTY_FILTERS);
   const [selected, setSelected] = useState<Post | null>(null);
+
+  /* Tutor session: token in localStorage, restored on load via tutorMe. */
+  const [tutorToken, setTutorToken] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(TUTOR_TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const tutorQuery = useQuery({
+    queryKey: ["tutorMe", tutorToken],
+    queryFn: () => api.tutorMe({ token: tutorToken ?? "" }),
+    enabled: tutorToken != null,
+    retry: false,
+  });
+  const tutor: TutorProfile | null = tutorQuery.data?.tutor ?? null;
+  /* Expired / invalid token: drop the session so the login view shows. */
+  useEffect(() => {
+    if (tutorQuery.isError && tutorToken) {
+      try {
+        localStorage.removeItem(TUTOR_TOKEN_KEY);
+      } catch {
+        /* storage unavailable */
+      }
+      setTutorToken(null);
+    }
+  }, [tutorQuery.isError, tutorToken]);
+
+  const handleTutorAuthed = (profile: TutorProfile, token: string) => {
+    try {
+      localStorage.setItem(TUTOR_TOKEN_KEY, token);
+    } catch {
+      /* storage unavailable */
+    }
+    setTutorToken(token);
+    // Seed the session query so the dashboard renders at once; the
+    // tutorMe refetch below confirms it against the server.
+    queryClient.setQueryData(["tutorMe", token], { tutor: profile });
+    void queryClient.invalidateQueries({ queryKey: ["tutorMe"] });
+    setView("dashboard");
+  };
+  const handleTutorLogout = () => {
+    try {
+      localStorage.removeItem(TUTOR_TOKEN_KEY);
+    } catch {
+      /* storage unavailable */
+    }
+    setTutorToken(null);
+    void queryClient.invalidateQueries({ queryKey: ["tutorMe"] });
+    setView("home");
+  };
+
+  /* Landing is the default view; every view change starts at the top. */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
+
+  const goView = (v: View) => {
+    setMenuOpen(false);
+    setView(v);
+  };
+
+  const goBoard = (kind: KindFilter = "all") => {
+    setFilters((f) => ({ ...f, kind }));
+    setUniFilter(null);
+    goView("board");
+  };
+
+  const goPost = (kind: "guardian" | "tutor") => {
+    setPostKind(kind);
+    goView("post");
+  };
+
+  const goLegal = (d: "privacy" | "terms") => {
+    setLegalDoc(d);
+    goView("legal");
+  };
+
+  /* Header Login: opens the login view when logged out, the dashboard
+     (via the tutor's name) when logged in. */
+  const goLogin = () => {
+    setMenuOpen(false);
+    setView(tutor ? "dashboard" : "login");
+  };
+
+  const goSignup = () => {
+    setMenuOpen(false);
+    setView("signup");
+  };
 
   const favIdsQuery = useQuery({
     queryKey: ["favoriteIds"],
@@ -2913,11 +4725,13 @@ export function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const navItems: { v: Tab; label: string; icon: ReactNode }[] = [
-    { v: "board", label: t("navBoard"), icon: <IconBoard className="h-5 w-5" /> },
-    { v: "post", label: t("navPost"), icon: <IconPlusCircle className="h-5 w-5" /> },
-    { v: "favorites", label: t("navFavorites"), icon: <IconHeart className="h-5 w-5" /> },
-    { v: "admin", label: t("navAdmin"), icon: <IconWrench className="h-5 w-5" /> },
+  const navItems: { key: string; label: string; icon: ReactNode; onClick: () => void; active: boolean }[] = [
+    { key: "home", label: t("navHome"), icon: <IconHome className="h-4 w-4" />, onClick: () => goView("home"), active: view === "home" },
+    { key: "board", label: t("navBoard"), icon: <IconBoard className="h-4 w-4" />, onClick: () => goBoard("all"), active: view === "board" && filters.kind === "all" && !uniFilter },
+    { key: "find", label: t("navFindTutor"), icon: <IconGradCap className="h-4 w-4" />, onClick: () => goPost("guardian"), active: view === "post" && postKind === "guardian" },
+    { key: "jobs", label: t("navJobs"), icon: <IconBookmark className="h-4 w-4" />, onClick: () => goBoard("guardian"), active: view === "board" && filters.kind === "guardian" },
+    { key: "about", label: t("navAbout"), icon: <IconUser className="h-4 w-4" />, onClick: () => goView("about"), active: view === "about" },
+    { key: "trust", label: t("navTrust"), icon: <IconShieldCheck className="h-4 w-4" />, onClick: () => goView("trust"), active: view === "trust" },
   ];
 
   // Separate admin area: /admin renders ONLY the admin panel — no public
@@ -2940,9 +4754,9 @@ export function App() {
     <div className="min-h-screen bg-[var(--bg)] pb-24 text-[var(--text)]">
       <SafeAreaTopScrim backgroundColor="var(--header-bg)" />
 
-      {/* Header band — deep purple from logo #4, with teal swoosh accent.
-          At the top: full-width solid bar. Once scrolled: floating frosted
-          rounded pill that stays stuck to the top. */}
+      {/* Header — blue bar at the top; once scrolled it morphs into a
+          floating frosted rounded pill. Logo left, nav centre, buttons
+          right; on small screens the nav collapses into a hamburger menu. */}
       <header
         className={`sticky z-40 pt-safe transition-all duration-300 ${
           scrolled
@@ -2950,43 +4764,96 @@ export function App() {
             : "top-0 border-b-4 border-[var(--teal-bright)] bg-[var(--header-bg)] px-4 pb-5"
         }`}
       >
-        <div className="mx-auto max-w-4xl pt-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
+        <div className="mx-auto max-w-6xl pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => goView("home")}
+              className="flex min-w-0 items-center gap-3 text-left"
+              aria-label={t("appName")}
+            >
               <img
                 src={barakaLogo}
                 alt=""
-                className="h-14 w-14 shrink-0 rounded-2xl bg-white object-contain p-1 shadow-[0_4px_14px_rgba(0,0,0,0.3)] ring-2 ring-[var(--teal-bright)]"
+                className="h-12 w-12 shrink-0 rounded-2xl bg-white object-contain p-1 shadow-[0_4px_14px_rgba(0,0,0,0.3)] ring-2 ring-[var(--teal-bright)] sm:h-14 sm:w-14"
               />
-              <div className="min-w-0">
-                <h1 className="text-xl font-bold leading-tight text-white min-[400px]:text-2xl">{t("appName")}</h1>
-                <p className="text-xs font-medium tracking-wide text-white/70">{t("appSub")}</p>
-              </div>
-            </div>
-            <div
-              className="flex shrink-0 overflow-hidden rounded-full border border-white/40"
-              role="group"
-              aria-label={t("languageLabel")}
-            >
+              <span className="min-w-0">
+                <span className="block truncate text-lg font-bold leading-tight text-white sm:text-2xl">{t("appName")}</span>
+                <span className="block text-xs font-medium tracking-wide text-white/70">{t("appSub")}</span>
+              </span>
+            </button>
+
+            {/* Centre nav — desktop */}
+            <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex" aria-label={t("mainMenu")}>
+              {navItems.map((n) => (
+                <button
+                  key={n.key}
+                  type="button"
+                  aria-current={n.active ? "page" : undefined}
+                  onClick={n.onClick}
+                  className={`flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold ${
+                    n.active ? "bg-white text-[var(--header-bg)]" : "bg-white/15 text-white"
+                  }`}
+                >
+                  {n.icon} {n.label}
+                </button>
+              ))}
+            </nav>
+
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
-                aria-pressed={lang === "bn"}
-                onClick={() => setLang("bn")}
-                className={`px-3 py-1.5 text-sm font-semibold ${
-                  lang === "bn" ? "bg-white text-[var(--header-bg)]" : "text-white"
-                }`}
+                onClick={goSignup}
+                className="hidden rounded-full bg-[#ffd400] px-4 py-2 text-sm font-bold text-[#1a1a1a] sm:inline-flex"
               >
-                বাংলা
+                {t("becomeTutorBtn")}
               </button>
               <button
                 type="button"
-                aria-pressed={lang === "en"}
-                onClick={() => setLang("en")}
-                className={`px-3 py-1.5 text-sm font-semibold ${
-                  lang === "en" ? "bg-white text-[var(--header-bg)]" : "text-white"
-                }`}
+                onClick={goLogin}
+                className="hidden items-center gap-1.5 rounded-full border border-white/60 px-4 py-2 text-sm font-semibold text-white sm:inline-flex"
               >
-                English
+                <IconUser className="h-4 w-4 shrink-0" />
+                {tutor ? (
+                  <span className="max-w-32 truncate">{tutor.name}</span>
+                ) : (
+                  t("headerLoginBtn")
+                )}
+              </button>
+              <div
+                className="flex overflow-hidden rounded-full border border-white/40"
+                role="group"
+                aria-label={t("languageLabel")}
+              >
+                <button
+                  type="button"
+                  aria-pressed={lang === "bn"}
+                  onClick={() => setLang("bn")}
+                  className={`px-2.5 py-1.5 text-sm font-semibold ${
+                    lang === "bn" ? "bg-white text-[var(--header-bg)]" : "text-white"
+                  }`}
+                >
+                  বাংলা
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={lang === "en"}
+                  onClick={() => setLang("en")}
+                  className={`px-2.5 py-1.5 text-sm font-semibold ${
+                    lang === "en" ? "bg-white text-[var(--header-bg)]" : "text-white"
+                  }`}
+                >
+                  English
+                </button>
+              </div>
+              <button
+                type="button"
+                aria-label={t("menuAria")}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((v) => !v)}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white lg:hidden"
+              >
+                {menuOpen ? <IconX className="h-5 w-5" /> : <IconSliders className="h-5 w-5" />}
               </button>
             </div>
           </div>
@@ -2997,54 +4864,141 @@ export function App() {
           >
             {t("tagline")}
           </p>
-          <div className="mt-3 hidden flex-wrap gap-2 sm:flex" role="tablist" aria-label={t("mainMenu")}>
-            {navItems.map((n) => (
+          {menuOpen ? (
+            <nav className="mt-3 flex flex-col gap-1 rounded-2xl bg-white/10 p-2 lg:hidden" aria-label={t("mainMenu")}>
+              {navItems.map((n) => (
+                <button
+                  key={n.key}
+                  type="button"
+                  aria-current={n.active ? "page" : undefined}
+                  onClick={n.onClick}
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${
+                    n.active ? "bg-white text-[var(--header-bg)]" : "text-white"
+                  }`}
+                >
+                  {n.icon} {n.label}
+                </button>
+              ))}
               <button
-                key={n.v}
                 type="button"
-                role="tab"
-                aria-selected={tab === n.v}
-                onClick={() => setTab(n.v)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                  tab === n.v ? "bg-white text-[var(--header-bg)]" : "bg-white/15 text-white"
-                }`}
+                onClick={goSignup}
+                className="mt-1 flex items-center gap-2 rounded-xl bg-[#ffd400] px-3 py-2.5 text-left text-sm font-bold text-[#1a1a1a]"
               >
-                {n.icon} {n.label}
+                <IconGradCap className="h-4 w-4" /> {t("becomeTutorBtn")}
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                onClick={goLogin}
+                className="flex items-center gap-2 rounded-xl border border-white/60 px-3 py-2.5 text-left text-sm font-semibold text-white"
+              >
+                <IconUser className="h-4 w-4" />{" "}
+                {tutor ? <span className="truncate">{tutor.name}</span> : t("headerLoginBtn")}
+              </button>
+              {tutor ? (
+                <button
+                  type="button"
+                  onClick={() => goView("dashboard")}
+                  className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white"
+                >
+                  <IconBoard className="h-4 w-4" /> {t("navDashboard")}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => goView("favorites")}
+                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white"
+              >
+                <IconHeart className="h-4 w-4" /> {t("navFavorites")}
+              </button>
+              <button
+                type="button"
+                onClick={() => goView("admin")}
+                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white"
+              >
+                <IconWrench className="h-4 w-4" /> {t("navAdmin")}
+              </button>
+            </nav>
+          ) : null}
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 pt-4">
-        {tab === "board" ? (
-          <Board filters={filters} setFilters={setFilters} onOpen={setSelected} />
-        ) : null}
-        {tab === "post" ? <PostForm onDone={() => setTab("board")} /> : null}
-        {tab === "favorites" ? <Favorites onOpen={setSelected} /> : null}
-        {tab === "admin" ? <AdminPanel /> : null}
-
-        <footer className="mt-10 border-t border-[var(--border)] pt-5 pb-2 text-center text-xs text-[var(--dim)]">
-          <img
-            src={barakaLogo}
-            alt=""
-            className="mx-auto h-11 w-11 rounded-xl bg-white object-contain p-0.5 shadow-sm ring-1 ring-[var(--border)]"
+      <main className="mx-auto max-w-6xl px-4 pt-4">
+        {view === "home" ? (
+          <Home
+            onFindTutor={() => goPost("guardian")}
+            onBrowseJobs={() => goBoard("guardian")}
+            onBecomeTutor={goSignup}
+            onSelectUni={(name) => {
+              setUniFilter(name);
+              setFilters((f) => ({ ...f, kind: "all" }));
+              goView("board");
+            }}
           />
-          <p className="mt-2 font-semibold text-[var(--text)]">{t("appName")}</p>
-          <p className="mt-1">{t("footerLine1")}</p>
-          <p className="mt-1">{t("footerLine2")}</p>
-          <p className="mt-2">
-            <a
-              href="https://barakatutors.vercel.app"
-              target="_blank"
-              rel="noreferrer"
-              className="font-semibold text-[var(--accent-strong)] underline"
-            >
-              <IconExternal className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("liveSiteLink")}
-            </a>
-          </p>
-        </footer>
+        ) : null}
+        {view === "board" ? (
+          <div className="mx-auto max-w-4xl">
+            <Board
+              filters={filters}
+              setFilters={setFilters}
+              onOpen={setSelected}
+              institutionFilter={uniFilter}
+              onClearInstitution={() => setUniFilter(null)}
+            />
+          </div>
+        ) : null}
+        {view === "post" ? (
+          <div className="mx-auto max-w-4xl">
+            <PostForm
+              key={`${postKind}-${tutor?.phone ?? ""}`}
+              initialKind={postKind}
+              prefill={postKind === "tutor" && tutor ? { name: tutor.name, phone: tutor.phone } : null}
+              onDone={() => goView("board")}
+            />
+          </div>
+        ) : null}
+        {view === "signup" ? (
+          <div className="mx-auto max-w-4xl">
+            <TutorSignup onAuthed={handleTutorAuthed} onGoLogin={() => setView("login")} />
+          </div>
+        ) : null}
+        {view === "login" ? (
+          <div className="mx-auto max-w-4xl">
+            <TutorLogin onAuthed={handleTutorAuthed} onGoSignup={() => setView("signup")} />
+          </div>
+        ) : null}
+        {view === "dashboard" ? (
+          tutor && tutorToken ? (
+            <TutorDashboard
+              tutor={tutor}
+              token={tutorToken}
+              onLogout={handleTutorLogout}
+              onOpenPost={setSelected}
+              onNewOffer={() => goPost("tutor")}
+            />
+          ) : tutorToken ? (
+            <p className="py-10 text-center text-[var(--dim)]">{t("loadingShort")}</p>
+          ) : (
+            <div className="mx-auto max-w-4xl">
+              <TutorLogin onAuthed={handleTutorAuthed} onGoSignup={() => setView("signup")} />
+            </div>
+          )
+        ) : null}
+        {view === "favorites" ? (
+          <div className="mx-auto max-w-4xl">
+            <Favorites onOpen={setSelected} />
+          </div>
+        ) : null}
+        {view === "admin" ? (
+          <div className="mx-auto max-w-4xl">
+            <AdminPanel />
+          </div>
+        ) : null}
+        {view === "about" ? <AboutView /> : null}
+        {view === "trust" ? <TrustCheckView onOpen={setSelected} /> : null}
+        {view === "legal" ? <LegalView doc={legalDoc} onChange={setLegalDoc} /> : null}
       </main>
+
+      <SiteFooter onNavigate={goView} onLegal={goLegal} />
 
       {/* Mobile bottom nav */}
       <nav
@@ -3052,19 +5006,26 @@ export function App() {
         aria-label={t("mainMenu")}
       >
         <div className="grid grid-cols-4">
-          {navItems.map((n) => (
+          {(
+            [
+              { v: "home" as View, label: t("navHome"), icon: <IconHome className="h-5 w-5" /> },
+              { v: "board" as View, label: t("navBoard"), icon: <IconBoard className="h-5 w-5" /> },
+              { v: "post" as View, label: t("navPost"), icon: <IconPlusCircle className="h-5 w-5" /> },
+              { v: "favorites" as View, label: t("navFavorites"), icon: <IconHeart className="h-5 w-5" /> },
+            ]
+          ).map((n) => (
             <button
               key={n.v}
               type="button"
-              aria-current={tab === n.v ? "page" : undefined}
-              onClick={() => setTab(n.v)}
+              aria-current={view === n.v ? "page" : undefined}
+              onClick={() => (n.v === "post" ? goPost("guardian") : n.v === "board" ? goBoard("all") : goView(n.v))}
               className={`flex flex-col items-center gap-0.5 py-2 text-xs font-semibold ${
-                tab === n.v ? "text-[var(--accent-strong)]" : "text-[var(--dim)]"
+                view === n.v ? "text-[var(--accent-strong)]" : "text-[var(--dim)]"
               }`}
             >
               <span className="inline-flex h-5 w-5 items-center justify-center">
                 {n.v === "favorites" ? (
-                  <IconHeart filled={tab === n.v} className="h-5 w-5" />
+                  <IconHeart filled={view === n.v} className="h-5 w-5" />
                 ) : (
                   n.icon
                 )}

@@ -39,6 +39,147 @@ const S = {
     en: "Please confirm the salary and schedule carefully before making contact.",
   },
 
+  /* landing (Tasnim-style home) */
+  navHome: { bn: "হোম", en: "Home" },
+  navFindTutor: { bn: "টিউটর খুঁজুন", en: "Find a Tutor" },
+  navJobs: { bn: "টিউশন জব", en: "Tuition Jobs" },
+  navAbout: { bn: "অ্যাবাউট", en: "About" },
+  navTrust: { bn: "যাচাই", en: "Trust Check" },
+  becomeTutorBtn: { bn: "টিউটর হোন", en: "Become a Tutor" },
+  headerLoginBtn: { bn: "লগইন", en: "Login" },
+  menuAria: { bn: "মেনু খুলুন", en: "Open menu" },
+  heroBadge: { bn: "রংপুরের বিশ্বস্ত টিউশন প্ল্যাটফর্ম", en: "Rangpur's Trusted Tuition Platform" },
+  heroTitleStart: { bn: "প্রতিটি শিক্ষার্থীর জন্য", en: "Find the" },
+  heroTitleAccent: { bn: "সঠিক টিউটর", en: "Right Tutor" },
+  heroTitleEnd: { bn: "খুঁজুন", en: "for Every Student" },
+  heroSub: {
+    bn: "বেগম রোকেয়া বিশ্ববিদ্যালয়, ঢাকা বিশ্ববিদ্যালয়, মেডিকেলসহ দেশের সেরা প্রতিষ্ঠানের অভিজ্ঞ টিউটর — বাসায় কিংবা অনলাইনে।",
+    en: "Experienced tutors from Begum Rokeya University, Dhaka University, medical colleges and other leading institutions — at home or online.",
+  },
+  heroFindBtn: { bn: "টিউটর খুঁজুন", en: "Find a Tutor" },
+  heroJobsBtn: { bn: "টিউশন জব দেখুন", en: "Browse Tuition Jobs" },
+  trustStripPosts: { bn: "{n}টি টিউশন পোস্ট", en: "{n} tuition posts" },
+  trustStripVerified: { bn: "যাচাইকৃত টিউটর প্রোফাইল", en: "Verified tutor profiles" },
+  trustStripArea: { bn: "রংপুরের সব এলাকা", en: "Every area of Rangpur" },
+  statTotalPosts: { bn: "মোট পোস্ট", en: "Total posts" },
+  uniTitleA: { bn: "শীর্ষ বিশ্ববিদ্যালয়ের", en: "Tutors From" },
+  uniTitleB: { bn: "টিউটর", en: "Top Universities" },
+  uniSub: {
+    bn: "দেশের সেরা বিশ্ববিদ্যালয় ও মেডিকেল কলেজের টিউটরদের খুঁজে নিন। কোনো বিশ্ববিদ্যালয়ে চাপ দিলে সেই প্রতিষ্ঠানের টিউটরদের পোস্ট বোর্ডে দেখা যাবে।",
+    en: "Find tutors from the country's top universities and medical colleges. Tap a university to see that institution's tutors on the board.",
+  },
+  howTitle: { bn: "কীভাবে কাজ করে", en: "How It Works" },
+  howSub: { bn: "চারটি সহজ ধাপে সঠিক টিউটর পান।", en: "Get the right tutor in four simple steps." },
+  step1Title: { bn: "আপনার প্রয়োজন জানান", en: "Tell Us Your Requirements" },
+  step1Desc: { bn: "শ্রেণি, বিষয়, পছন্দের টিউটর, এলাকা ও সময় জানিয়ে পোস্ট দিন।", en: "Post your class, subjects, preferred tutor, area and schedule." },
+  step2Title: { bn: "যোগ্য টিউটর পান", en: "Receive Qualified Tutors" },
+  step2Desc: { bn: "আপনার প্রয়োজনের সঙ্গে মেলে এমন যাচাইকৃত টিউটরদের দেখুন।", en: "See verified tutors who match your requirements." },
+  step3Title: { bn: "ডেমো ক্লাস নিন", en: "Take a Demo Class" },
+  step3Desc: { bn: "টিউটরের সঙ্গে কথা বলে পড়ানোর ধরন যাচাই করে নিন।", en: "Talk to the tutor and check their teaching style first." },
+  step4Title: { bn: "পড়াশোনা শুরু করুন", en: "Start Learning" },
+  step4Desc: { bn: "টিউটর বেছে নিয়ে নিয়মিত বাসায় বা অনলাইনে ক্লাস শুরু করুন।", en: "Choose your tutor and begin regular home or online classes." },
+  requestTutorBtn: { bn: "টিউটর অনুরোধ করুন", en: "Request a Tutor" },
+  whyTitleA: { bn: "কেন", en: "Why Choose" },
+  whyTitleB: { bn: "বারাকা টিউটরস?", en: "Baraka Tutors?" },
+  whySub: { bn: "যোগ্য টিউটর খুঁজে পাওয়া সহজ, দ্রুত ও নির্ভরযোগ্য করাই আমাদের কাজ।", en: "We make finding a qualified tutor simple, fast and reliable." },
+  why1: { bn: "যাচাইকৃত ও বিশ্বস্ত টিউটর", en: "Verified & trusted tutors" },
+  why2: { bn: "১ম শ্রেণি থেকে HSC ও ভর্তি পরীক্ষা পর্যন্ত", en: "Tutors for Class 1 to HSC & admission" },
+  why3: { bn: "বাংলা ও ইংরেজি মাধ্যম", en: "Bangla & English medium" },
+  why4: { bn: "বাসায় ও অনলাইনে পড়ানো যায়", en: "Home & online tutoring available" },
+  why5: { bn: "BUET, DU, মেডিকেল, NSU সহ আরও অনেক প্রতিষ্ঠানের টিউটর", en: "Tutors from BUET, DU, Medical, NSU & more" },
+  why6: { bn: "দ্রুত টিউটর মিলিয়ে দেওয়া হয়", en: "Fast tutor matching" },
+  ctaBadge: { bn: "শুরু করতে প্রস্তুত?", en: "Ready to Get Started?" },
+  ctaTitle: { bn: "আজই টিউটর দরকার?", en: "Need a Tutor Today?" },
+  ctaSub: { bn: "আমরা দ্রুত সঠিক টিউটর খুঁজে দিতে সাহায্য করব।", en: "We'll help you find the right one quickly." },
+  ctaBtn: { bn: "টিউটর খুঁজুন", en: "Find a Tutor" },
+
+  /* about */
+  aboutTitle: { bn: "বারাকা টিউটরস সম্পর্কে", en: "About Baraka Tutors" },
+  aboutBody1: {
+    bn: "বারাকা টিউটরস রংপুরের একটি টিউশন প্ল্যাটফর্ম। গার্ডিয়ানরা এখানে টিউশনের জন্য টিউটর খুঁজে পোস্ট দেন, আর টিউটররা নিজেদের অফার পোস্ট করেন — দুই পক্ষই এক ঠিকানায় একে অপরকে খুঁজে পান।",
+    en: "Baraka Tutors is a tuition platform for Rangpur. Guardians post here when they are looking for a tutor, and tutors post their own offers — both sides find each other in one place.",
+  },
+  aboutBody2: {
+    bn: "টিউটরদের তথ্য অ্যাডমিন যাচাই করেন, আর যাচাই হওয়া টিউটরদের পোস্টে যাচাইকৃত ব্যাজ দেখা যায়। বোর্ডে পোস্ট দেখে আবেদন করা যায়, আর প্রয়োজনে সাইটের চ্যাট থেকে অ্যাডমিনের সঙ্গে যোগাযোগ করা যায়।",
+    en: "The admin checks tutors' information, and verified tutors carry a verified badge on their posts. You can browse the board, apply to a post, and reach the admin through the on-site chat when you need help.",
+  },
+  aboutMission: {
+    bn: "রংপুরের প্রতিটি পরিবারের জন্য বিশ্বস্ত টিউটর খোঁজা সহজ, নিরাপদ ও সুসংগঠিত করা।",
+    en: "To make finding a trusted tutor in Rangpur simple, safe and organised for every family.",
+  },
+  aboutMissionLabel: { bn: "আমাদের লক্ষ্য", en: "Our mission" },
+
+  /* trust check */
+  trustTitle: { bn: "ট্রাস্ট চেক", en: "Trust Check" },
+  trustSub: {
+    bn: "যাচাইকৃত টিউটরদের নাম বা মোবাইল নম্বর দিয়ে খুঁজে দেখুন। যাচাইকৃত ব্যাজ মানে অ্যাডমিন টিউটরের তথ্য যাচাই করেছেন।",
+    en: "Search verified tutors by name or mobile number. A verified badge means the admin has checked the tutor's information.",
+  },
+  trustHowTitle: { bn: "যাচাই মানে কী", en: "What verification means" },
+  trustHow1: {
+    bn: "টিউটর তার প্রতিষ্ঠান ও অভিজ্ঞতার তথ্য দেন।",
+    en: "The tutor shares their institution and experience details.",
+  },
+  trustHow2: {
+    bn: "অ্যাডমিন তথ্যগুলো যাচাই করে দেখেন।",
+    en: "The admin checks the information.",
+  },
+  trustHow3: {
+    bn: "যাচাই হলে পোস্টে যাচাইকৃত ব্যাজ দেখা যায়।",
+    en: "Once verified, the post carries a verified badge.",
+  },
+  trustSearchPh: { bn: "টিউটরের নাম বা মোবাইল নম্বর লিখুন…", en: "Type a tutor's name or mobile number…" },
+  trustSearchBtn: { bn: "খুঁজুন", en: "Search" },
+  trustResults: { bn: "{n} জন যাচাইকৃত টিউটর পাওয়া গেছে", en: "{n} verified tutor(s) found" },
+  trustNoResult: {
+    bn: "এই নাম বা নম্বরে কোনো যাচাইকৃত টিউটর পাওয়া যায়নি।",
+    en: "No verified tutor was found for this name or number.",
+  },
+  trustNoneYet: {
+    bn: "এখনো কোনো যাচাইকৃত টিউটর নেই।",
+    en: "There are no verified tutors yet.",
+  },
+  trustDisclaimer: {
+    bn: "কোনো রেকর্ড না পাওয়া মানেই যে কেউ নিরাপদ — তা নয়। যোগাযোগের আগে বেতন ও সময় ভালোভাবে নিশ্চিত হয়ে নিন, আর সমস্যা হলে পোস্টে রিপোর্ট করুন।",
+    en: "Not finding a record does not confirm that someone is safe. Confirm the salary and schedule carefully before making contact, and report a post if something seems wrong.",
+  },
+  trustAllVerified: { bn: "সব যাচাইকৃত টিউটর", en: "All verified tutors" },
+
+  /* legal */
+  legalPrivacy: { bn: "গোপনীয়তা নীতি", en: "Privacy Policy" },
+  legalTerms: { bn: "শর্তাবলি", en: "Terms & Conditions" },
+  privacyP1: {
+    bn: "বারাকা টিউটরসে আপনি যে তথ্য দেন — নাম, মোবাইল নম্বর, পোস্টের বিবরণ — তা শুধু বোর্ডে পোস্ট দেখানো ও যোগাযোগের কাজে ব্যবহার করা হয়। আপনার তথ্য অন্য কারো কাছে বিক্রি করা হয় না।",
+    en: "The information you share on Baraka Tutors — your name, mobile number and post details — is used only to show your post on the board and to let others contact you. Your information is never sold to anyone.",
+  },
+  privacyP2: {
+    bn: "চ্যাটে পাঠানো বার্তা শুধু আপনাকে সাহায্য করার কাজে ব্যবহার করা হয়। নিজের পোস্ট মুছতে বা তথ্য বদলাতে চাইলে সাইটের চ্যাট থেকে অ্যাডমিনের সঙ্গে যোগাযোগ করুন।",
+    en: "Messages sent in the chat are used only to help you. If you want your post removed or your details changed, contact the admin through the on-site chat.",
+  },
+  termsP1: {
+    bn: "পোস্টে সত্য তথ্য দিতে হবে। ভুল তথ্য, স্প্যাম বা প্রতারণামূলক পোস্ট অ্যাডমিন যেকোনো সময় মুছে দিতে পারেন। বেতন ও সময় নিয়ে দুই পক্ষ নিজেরা চূড়ান্ত সিদ্ধান্ত নেবেন।",
+    en: "Posts must contain truthful information. The admin may remove any post with false information, spam or fraud at any time. The two sides decide the salary and schedule between themselves.",
+  },
+  termsP2: {
+    bn: "টিউটর বা গার্ডিয়ানের সঙ্গে লেনদেনের আগে পরিচয় ও শর্ত ভালোভাবে যাচাই করে নিন। প্ল্যাটফর্মের বাইরে হওয়া লেনদেনের দায় প্ল্যাটফর্ম নেবে না।",
+    en: "Before any payment, check the other person's identity and terms carefully. The platform is not responsible for transactions made outside it.",
+  },
+
+  /* footer */
+  footerQuick: { bn: "দ্রুত লিংক", en: "Quick Links" },
+  footerContact: { bn: "যোগাযোগ", en: "Contact" },
+  footerLegal: { bn: "আইনি", en: "Legal" },
+  footerContactLine1: { bn: "বারাকা টিউটরস, রংপুর, বাংলাদেশ", en: "Baraka Tutors, Rangpur, Bangladesh" },
+  footerChatLine: {
+    bn: "প্রশ্ন থাকলে এই সাইটের চ্যাট বোতাম থেকে বার্তা পাঠান।",
+    en: "Questions? Send a message from the chat button on this site.",
+  },
+  socialFacebookAria: { bn: "ফেসবুক", en: "Facebook" },
+  socialInstagramAria: { bn: "ইনস্টাগ্রাম", en: "Instagram" },
+  socialWhatsAppAria: { bn: "হোয়াটসঅ্যাপ", en: "WhatsApp" },
+  whatsappAria: { bn: "হোয়াটসঅ্যাপে বার্তা পাঠান", en: "Message on WhatsApp" },
+  uniFilterActive: { bn: "{name} — এই প্রতিষ্ঠানের টিউটর দেখানো হচ্ছে", en: "Showing tutors from {name}" },
+
   /* post card */
   chipGuardian: { bn: "গার্ডিয়ান খুঁজছেন", en: "Guardian looking" },
   chipTutor: { bn: "টিউটর অফার", en: "Tutor offer" },
@@ -137,6 +278,27 @@ const S = {
   applicationsValue: { bn: "{n}টি", en: "{n}" },
   detailsHeading: { bn: "বিস্তারিত", en: "Details" },
   callNow: { bn: "কল করুন: {phone}", en: "Call: {phone}" },
+  /* Middleman: the public board never shows a full phone or a direct
+     call button. The number is masked; contact opens only after the
+     application is accepted. */
+  maskedContactNote: {
+    bn: "নিরাপত্তার জন্য মোবাইল নম্বর আংশিক লুকানো আছে — আবেদন গৃহীত হলে পুরো নম্বর দেখা যাবে।",
+    en: "The mobile number is partly hidden for safety — you'll see the full number once your application is accepted.",
+  },
+  applyToSeeContactBtn: { bn: "যোগাযোগ দেখতে আবেদন করুন", en: "Apply to see contact" },
+  contactRevealedLabel: { bn: "যোগাযোগের নম্বর:", en: "Contact number:" },
+  guardianAppsTitle: { bn: "আবেদন দেখুন", en: "View applications" },
+  guardianAppsBody: {
+    bn: "আপনি যে মোবাইল নম্বর দিয়ে এই পোস্টটি দিয়েছেন, সেটি লিখুন — তাহলে এই পোস্টের আবেদনগুলো দেখতে পাবেন।",
+    en: "Enter the mobile number you used for this post to see its applications.",
+  },
+  guardianAppsBtn: { bn: "আবেদন দেখুন", en: "Show applications" },
+  guardianAppsWrongPhone: {
+    bn: "মোবাইল নম্বরটি এই পোস্টের সঙ্গে মিলছে না — আবার চেষ্টা করুন",
+    en: "That mobile number doesn't match this post — please try again",
+  },
+  guardianAppsEmpty: { bn: "এখনো কোনো আবেদন আসেনি", en: "No applications yet" },
+  guardianAppsFail: { bn: "আবেদন দেখা যায়নি", en: "Could not load the applications" },
   favInBtn: { bn: "প্রিয়তে আছে", en: "In favorites" },
   favAddBtn: { bn: "প্রিয় করুন", en: "Add to favorites" },
   applyHeadingGuardian: { bn: "এই টিউশনিতে আবেদন করুন", en: "Apply for this tuition" },
@@ -362,6 +524,17 @@ const S = {
   markRejectedBtn: { bn: "প্রত্যাখ্যান", en: "Reject" },
   markNewBtn: { bn: "নতুন করুন", en: "Mark as new" },
   deleteWordBtn: { bn: "মুছুন", en: "Delete" },
+  /* Commission (admin only, tracking only — no rate is set; the amount
+     starts empty and the admin fills it in when an application is
+     accepted). */
+  commissionLabel: { bn: "কমিশন", en: "Commission" },
+  commissionAmountPh: { bn: "টাকার পরিমাণ (৳)", en: "Amount in BDT (৳)" },
+  commissionNotSet: { bn: "পরিমাণ বসানো হয়নি", en: "Amount not set" },
+  commissionPending: { bn: "বাকি", en: "Pending" },
+  commissionPaid: { bn: "পরিশোধিত", en: "Paid" },
+  commissionWaived: { bn: "মওকুফ", en: "Waived" },
+  commissionSaved: { bn: "কমিশন সংরক্ষিত হয়েছে", en: "Commission saved" },
+  commissionSaveFail: { bn: "কমিশন সংরক্ষণ হয়নি", en: "Could not save the commission" },
   noReportsTitle: { bn: "কোনো রিপোর্ট নেই", en: "No reports" },
   noReportsBody: {
     bn: "ব্যবহারকারীরা পোস্টে রিপোর্ট করলে তা এখানে আসবে।",
@@ -469,6 +642,80 @@ const S = {
   chatReplyBtn: { bn: "রিপ্লাই পাঠান", en: "Send reply" },
   chatBackBtn: { bn: "সব চ্যাট", en: "All chats" },
   chatAiToggleLabel: { bn: "AI উত্তর", en: "AI replies" },
+
+  /* tutor accounts */
+  navDashboard: { bn: "ড্যাশবোর্ড", en: "Dashboard" },
+  tutorSignupTitle: { bn: "টিউটর অ্যাকাউন্ট তৈরি করুন", en: "Create a Tutor Account" },
+  tutorSignupSub: {
+    bn: "অ্যাকাউন্ট খুলে আপনার প্রোফাইল সাজান — গার্ডিয়ানরা আপনাকে খুঁজে পাবেন, আর আপনি টিউশনিতে আবেদন করতে পারবেন।",
+    en: "Open an account and set up your profile — guardians will find you, and you can apply for tuitions.",
+  },
+  tutorLoginTitle: { bn: "টিউটর লগইন", en: "Tutor Login" },
+  tutorLoginSub: {
+    bn: "আপনার মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে লগইন করুন।",
+    en: "Log in with your mobile number and password.",
+  },
+  fPassword: { bn: "পাসওয়ার্ড", en: "Password" },
+  passwordHint: { bn: "কমপক্ষে ৬ অক্ষরের হতে হবে", en: "Must be at least 6 characters" },
+  universityLabel: { bn: "বিশ্ববিদ্যালয় *", en: "University *" },
+  universityPh: { bn: "যেমন: বেগম রোকেয়া বিশ্ববিদ্যালয়", en: "e.g. Begum Rokeya University" },
+  departmentLabel: { bn: "বিভাগ *", en: "Department *" },
+  departmentPh: { bn: "যেমন: গণিত", en: "e.g. Mathematics" },
+  feesLabel: { bn: "আপনার ফি (ঐচ্ছিক)", en: "Your fees (optional)" },
+  feesPh: { bn: "যেমন: প্রতি মাসে ৫০০০ টাকা", en: "e.g. 5000 taka per month" },
+  photoUrlLabel: { bn: "ছবির লিংক (ঐচ্ছিক)", en: "Photo link (optional)" },
+  photoUrlHint: {
+    bn: "আপনার ছবির URL দিন — ফাইল আপলোড করা যায় না।",
+    en: "Paste a URL of your photo — file upload is not available.",
+  },
+  areasLabel: { bn: "এলাকা *", en: "Areas *" },
+  chooseAreasAria: { bn: "এলাকা বেছে নিন", en: "Choose areas" },
+  genderOtherOpt: { bn: "অন্যান্য", en: "Other" },
+  signupBtn: { bn: "অ্যাকাউন্ট তৈরি করুন", en: "Create account" },
+  creatingAccount: { bn: "অ্যাকাউন্ট তৈরি হচ্ছে…", en: "Creating account…" },
+  alreadyHaveAccount: { bn: "ইতিমধ্যে অ্যাকাউন্ট আছে?", en: "Already have an account?" },
+  noAccountYet: { bn: "অ্যাকাউন্ট নেই?", en: "Don't have an account yet?" },
+  goToLoginBtn: { bn: "লগইন করুন", en: "Log in" },
+  goToSignupBtn: { bn: "অ্যাকাউন্ট তৈরি করুন", en: "Create an account" },
+  loggingIn: { bn: "লগইন হচ্ছে…", en: "Logging in…" },
+  tutorDashboardTitle: { bn: "আমার ড্যাশবোর্ড", en: "My Dashboard" },
+  verifiedTutorBadge: { bn: "যাচাইকৃত টিউটর", en: "Verified tutor" },
+  verificationPending: { bn: "যাচাইয়ের অপেক্ষায়", en: "Verification pending" },
+  verificationPendingNote: {
+    bn: "অ্যাডমিন আপনার তথ্য যাচাই করলে যাচাইকৃত ব্যাজ দেখা যাবে।",
+    en: "Once the admin checks your information, you'll get a verified badge.",
+  },
+  tabProfile: { bn: "প্রোফাইল", en: "Profile" },
+  tabMyOffers: { bn: "আমার অফার", en: "My offers" },
+  tabMyApps: { bn: "আমার আবেদন", en: "My applications" },
+  editProfileBtn: { bn: "প্রোফাইল সম্পাদনা", en: "Edit profile" },
+  profileSavedMsg: { bn: "প্রোফাইল সংরক্ষিত হয়েছে", en: "Profile saved" },
+  myOffersTitle: { bn: "আমার অফার", en: "My offers" },
+  myOffersEmptyTitle: { bn: "এখনো কোনো অফার নেই", en: "No offers yet" },
+  myOffersEmptyBody: {
+    bn: "আপনার মোবাইল নম্বরে পোস্ট করা টিউটর অফারগুলো এখানে দেখা যাবে। নতুন অফার পোস্ট করুন।",
+    en: "Tutor offers posted with your mobile number will appear here. Post a new offer.",
+  },
+  newOfferBtn: { bn: "নতুন অফার পোস্ট করুন", en: "Post a new offer" },
+  myAppsTitle: { bn: "আমার আবেদন", en: "My applications" },
+  appsSentTitle: { bn: "আমি যেসব টিউশনিতে আবেদন করেছি", en: "Applications I sent" },
+  appsReceivedTitle: { bn: "আমার পোস্টে যেসব আবেদন এসেছে", en: "Applications received on my posts" },
+  noSentAppsTitle: { bn: "কোনো আবেদন পাঠাননি", en: "No applications sent" },
+  noSentAppsBody: {
+    bn: "বোর্ডের গার্ডিয়ান পোস্টে আবেদন করলেই তা এখানে দেখা যাবে।",
+    en: "When you apply to a guardian post on the board, it will appear here.",
+  },
+  noReceivedAppsTitle: { bn: "এখনো কোনো আবেদন আসেনি", en: "No applications received yet" },
+  noReceivedAppsBody: {
+    bn: "আপনার টিউটর অফারে কেউ আবেদন করলেই তা এখানে দেখা যাবে।",
+    en: "When someone applies to your tutor offer, it will appear here.",
+  },
+  maskedPhoneNote: {
+    bn: "আবেদনকারীর মোবাইল নম্বর আংশিক লুকানো আছে — আবেদন গৃহীত করলেই পুরো নম্বর দেখা যাবে।",
+    en: "Applicant phone numbers are partly hidden — accept an application to see the full number.",
+  },
+  applicantColon: { bn: "আবেদনকারী:", en: "Applicant:" },
+  feesRowLabel: { bn: "ফি", en: "Fees" },
 } as const;
 
 export type StringKey = keyof typeof S;

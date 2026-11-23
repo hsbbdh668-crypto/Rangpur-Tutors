@@ -18,6 +18,13 @@
 //   getPost              GET  /api/posts?id=…
 //   createPost           POST /api/posts
 //   applyToPost          POST /api/apply
+//   guardianViewApplications POST /api/apply { action: "viewApplications" }
+//                        (guardian proves the post with the phone they
+//                        posted with; applicant phones masked except
+//                        accepted ones — no guardian login/session)
+//   guardianSetApplicationStatus POST /api/apply
+//                        { action: "setApplicationStatus", … } — guardian
+//                        accepts/rejects on their own post (phone check)
 //   reportPost           POST /api/report
 //   toggleFavorite       POST /api/favorites
 //   listFavorites        GET  /api/favorites
@@ -30,6 +37,20 @@
 //                        (added to api/admin.ts — no REST equivalent existed)
 //   chatStart/chatSend   POST /api/chat   { action: "start"|"send", … }
 //   chatPoll             GET  /api/chat?id=…
+//   tutorSignup/login    POST /api/tutors { action: "signup"|"login", … }
+//   tutorMe/update       POST /api/tutors { action: "me"|"update", … }
+//   adminListApplications POST /api/admin { action: "listApplications" }
+//                        (full applicant phones + commission amount/status)
+//   adminSetCommission   POST /api/admin { action: "setCommission", … }
+//   tutorMyApplications  POST /api/tutors { action: "myApplications" }
+//                        (token in the `x-tutor-token` header; a `token`
+//                        body field works too. Store the token in
+//                        localStorage under "baraka_tutor_token".)
+//   tutorSetApplicationStatus POST /api/tutors
+//                        { action: "setApplicationStatus", … } — tutor
+//                        accepts/rejects on their own posts (token +
+//                        post ownership). Accepting creates the commission
+//                        record (status pending, amount NULL).
 
 export interface Post {
   id: number;
@@ -90,6 +111,26 @@ export interface AdminApplication {
   applicantRole: "tutor" | "guardian";
   message: string;
   status: "new" | "contacted" | "accepted" | "rejected";
+  /** Commission amount in BDT — null means not set yet (no commission
+      rate has been fixed; the admin fills it in). */
+  commissionAmount: number | null;
+  commissionStatus: CommissionStatus;
+  createdAt: string;
+}
+
+export type CommissionStatus = "pending" | "paid" | "waived";
+
+/** One application as a guardian sees it after the phone check:
+    applicant phones masked except accepted ones (full phone shown). */
+export interface GuardianApplication {
+  id: number;
+  applicantName: string;
+  applicantRole: "tutor" | "guardian";
+  applicantPhoneMasked: string;
+  /** Full phone — only when this application is accepted, else null. */
+  applicantPhone: string | null;
+  message: string;
+  status: "new" | "contacted" | "accepted" | "rejected";
   createdAt: string;
 }
 
@@ -124,6 +165,80 @@ export interface SavedSearch {
   filters: SavedSearchFilters;
   createdAt: string;
 }
+
+/** Public tutor profile (never includes password hash/salt). */
+export interface TutorProfile {
+  id: number;
+  name: string;
+  phone: string;
+  university: string;
+  department: string;
+  subjects: string[];
+  classes: string[];
+  areas: string[];
+  experience: string;
+  fees: string;
+  gender: "male" | "female" | "other";
+  photoUrl: string | null;
+  verified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TutorSignupInput {
+  name: string;
+  phone: string;
+  password: string;
+  university: string;
+  department: string;
+  subjects: string[];
+  classes: string[];
+  areas: string[];
+  experience?: string;
+  fees?: string;
+  gender: "male" | "female" | "other";
+  photoUrl?: string | null;
+}
+
+export type TutorUpdateInput = Partial<
+  Omit<TutorSignupInput, "password">
+>;
+
+export interface TutorApplicationSent {
+  id: number;
+  postId: number;
+  postTitle: string;
+  /** The guardian's (post author's) phone, masked (017XX-XXX123). */
+  postAuthorPhoneMasked: string;
+  /** Full guardian phone — only when this application is accepted. */
+  postAuthorPhone: string | null;
+  message: string;
+  status: "new" | "contacted" | "accepted" | "rejected";
+  createdAt: string;
+}
+
+export interface TutorApplicationReceived {
+  id: number;
+  postId: number;
+  postTitle: string;
+  applicantName: string;
+  /** Masked on the server (e.g. 017XX-XXX123) — never the full number
+      until the application is accepted. */
+  applicantPhoneMasked: string;
+  /** Full applicant phone — only when this application is accepted. */
+  applicantPhone: string | null;
+  message: string;
+  status: "new" | "contacted" | "accepted" | "rejected";
+  createdAt: string;
+}
+
+export interface TutorMyApplications {
+  sent: TutorApplicationSent[];
+  received: TutorApplicationReceived[];
+}
+
+/** localStorage key for the tutor session token (see api/tutors.ts). */
+export const TUTOR_TOKEN_KEY = "baraka_tutor_token";
 
 export interface BoardConfig {
   notice: string;
@@ -266,6 +381,25 @@ export const restApi = {
     return post<{ id: number }>("/api/apply", args);
   },
 
+  guardianViewApplications: async (args: {
+    postId: number;
+    phone: string;
+  }): Promise<{ postTitle: string; applications: GuardianApplication[] }> => {
+    return post<{ postTitle: string; applications: GuardianApplication[] }>("/api/apply", {
+      action: "viewApplications",
+      ...args,
+    });
+  },
+
+  guardianSetApplicationStatus: async (args: {
+    postId: number;
+    phone: string;
+    applicationId: number;
+    status: "accepted" | "rejected";
+  }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/apply", { action: "setApplicationStatus", ...args });
+  },
+
   reportPost: async (args: {
     postId: number;
     reporterName?: string;
@@ -385,6 +519,15 @@ export const restApi = {
     status: AdminApplication["status"];
   }): Promise<{ ok: boolean }> => {
     return post<{ ok: boolean }>("/api/admin", { action: "setApplicationStatus", ...args });
+  },
+
+  adminSetCommission: async (args: {
+    passcode: string;
+    id: number;
+    amount?: number | null;
+    status?: CommissionStatus;
+  }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/admin", { action: "setCommission", ...args });
   },
 
   adminDeleteApplication: async (args: {
@@ -508,6 +651,71 @@ export const restApi = {
     mode: "ai" | "admin";
   }): Promise<{ ok: boolean }> => {
     return post<{ ok: boolean }>("/api/admin", { action: "chatSetMode", ...args });
+  },
+
+  // ---------------- Tutor accounts (POST /api/tutors) ----------------
+  // Guardians have no accounts — only tutors sign up / log in. The
+  // session token is sent as the `x-tutor-token` header; store it in
+  // localStorage under TUTOR_TOKEN_KEY ("baraka_tutor_token") and clear
+  // it on logout. signup/login return { tutor, token }; me/update
+  // return { tutor }.
+
+  tutorSignup: async (
+    args: TutorSignupInput,
+  ): Promise<{ tutor: TutorProfile; token: string }> => {
+    return post<{ tutor: TutorProfile; token: string }>("/api/tutors", {
+      action: "signup",
+      ...args,
+    });
+  },
+
+  tutorLogin: async (args: {
+    phone: string;
+    password: string;
+  }): Promise<{ tutor: TutorProfile; token: string }> => {
+    return post<{ tutor: TutorProfile; token: string }>("/api/tutors", {
+      action: "login",
+      ...args,
+    });
+  },
+
+  tutorMe: async (args: { token: string }): Promise<{ tutor: TutorProfile }> => {
+    return req<{ tutor: TutorProfile }>("/api/tutors", {
+      method: "POST",
+      headers: { "x-tutor-token": args.token },
+      body: JSON.stringify({ action: "me" }),
+    });
+  },
+
+  tutorUpdateProfile: async (args: TutorUpdateInput & { token: string }): Promise<{
+    tutor: TutorProfile;
+  }> => {
+    const { token, ...fields } = args;
+    return req<{ tutor: TutorProfile }>("/api/tutors", {
+      method: "POST",
+      headers: { "x-tutor-token": token },
+      body: JSON.stringify({ action: "update", ...fields }),
+    });
+  },
+
+  tutorMyApplications: async (args: { token: string }): Promise<TutorMyApplications> => {
+    return req<TutorMyApplications>("/api/tutors", {
+      method: "POST",
+      headers: { "x-tutor-token": args.token },
+      body: JSON.stringify({ action: "myApplications" }),
+    });
+  },
+
+  tutorSetApplicationStatus: async (args: {
+    token: string;
+    applicationId: number;
+    status: "contacted" | "accepted" | "rejected";
+  }): Promise<{ ok: boolean }> => {
+    return req<{ ok: boolean }>("/api/tutors", {
+      method: "POST",
+      headers: { "x-tutor-token": args.token },
+      body: JSON.stringify({ action: "setApplicationStatus", ...args }),
+    });
   },
 };
 

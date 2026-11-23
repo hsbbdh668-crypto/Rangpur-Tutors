@@ -15,6 +15,7 @@
 // (see `api/_lib.ts`) backed by the hosted database in `DATABASE_URL`
 // (Turso / libSQL — the Drizzle schema in `server/src/schema.ts` is shared).
 
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { defineAction, z, type ActionsModule, type Ctx } from "@hatch/space-sdk";
 import { Privileged } from "@space/privileged";
 import { and, desc, eq } from "drizzle-orm";
@@ -89,12 +90,22 @@ function parseList(json: string): string[] {
   }
 }
 
-function toPost(row: PostRow, applicationCount: number): z.infer<typeof postShape> {
+/**
+ * Public posts never carry a full phone number: `mask` replaces it with
+ * the masked form (017XX-XXX123). Admin calls keep the full number —
+ * admin sees everything. The mask is applied here, server-side, so no
+ * public response can leak a full phone even if the client is changed.
+ */
+function toPost(
+  row: PostRow,
+  applicationCount: number,
+  mask = false,
+): z.infer<typeof postShape> {
   return {
     id: row.id,
     kind: row.kind,
     authorName: row.authorName,
-    phone: row.phone,
+    phone: mask ? maskPhone(row.phone) : row.phone,
     title: row.title,
     subjects: parseList(row.subjects),
     classes: parseList(row.classes),
@@ -118,6 +129,164 @@ function toPost(row: PostRow, applicationCount: number): z.infer<typeof postShap
     applicationCount,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/* ---------------- tutor accounts ---------------- */
+
+const tutorGenderEnum = z.enum(["male", "female", "other"]);
+
+const tutorProfileShape = z.object({
+  id: z.number(),
+  name: z.string(),
+  phone: z.string(),
+  university: z.string(),
+  department: z.string(),
+  subjects: z.array(z.string()),
+  classes: z.array(z.string()),
+  areas: z.array(z.string()),
+  experience: z.string(),
+  fees: z.string(),
+  gender: tutorGenderEnum,
+  photoUrl: z.string().nullable(),
+  verified: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+type TutorRow = typeof schema.tutors.$inferSelect;
+
+function toTutorProfile(row: TutorRow): z.infer<typeof tutorProfileShape> {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    university: row.university,
+    department: row.department,
+    subjects: parseList(row.subjects),
+    classes: parseList(row.classes),
+    areas: parseList(row.areas),
+    experience: row.experience,
+    fees: row.fees,
+    gender: row.gender,
+    photoUrl: row.photoUrl,
+    verified: row.verified === 1,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/** scrypt password hashing (64-byte key, 16-byte random salt, hex-encoded). */
+function hashPassword(password: string): { hash: string; salt: string } {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return { hash, salt };
+}
+
+function verifyPassword(password: string, hash: string, salt: string): boolean {
+  try {
+    const expected = Buffer.from(hash, "hex");
+    const actual = scryptSync(password, salt, 64);
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+  } catch {
+    return false;
+  }
+}
+
+/** Login tokens live 30 days. */
+const TUTOR_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+async function createTutorSession(ctx: Ctx, tutorId: number): Promise<string> {
+  const db = ctx.db<typeof schema>();
+  const token = randomBytes(32).toString("hex");
+  await db.insert(schema.tutorSessions).values({
+    token,
+    tutorId,
+    expiresAt: new Date(Date.now() + TUTOR_SESSION_TTL_MS),
+  });
+  return token;
+}
+
+/** Masks a phone number for tutor-facing views: 01700123456 -> 017XX-XXX456.
+    Full applicant numbers are never sent to tutors until the middleman
+    rules land; only this masked form leaves the server. */
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return "***";
+  return `${digits.slice(0, 3)}XX-XXX${digits.slice(-3)}`;
+}
+
+/**
+ * Normalises a phone for comparison: digits only, and a leading
+ * Bangladesh country code (880) becomes the local leading 0, so
+ * 8801712345678 and 01712345678 match. Used for the guardian phone
+ * check — a guardian proves a post is theirs by entering the number
+ * they posted with.
+ */
+function normalizePhoneDigits(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return digits.startsWith("880") ? `0${digits.slice(3)}` : digits;
+}
+
+function phonesMatch(a: string, b: string): boolean {
+  const na = normalizePhoneDigits(a);
+  const nb = normalizePhoneDigits(b);
+  return na.length >= 6 && na === nb;
+}
+
+const applicationStatusEnum = z.enum(["new", "contacted", "accepted", "rejected"]);
+const commissionStatusEnum = z.enum(["pending", "paid", "waived"]);
+
+type ApplicationRow = typeof schema.applications.$inferSelect;
+
+/**
+ * Accepts an application and creates its commission record: status
+ * "pending", amount NULL (empty — the admin fills it in; no commission
+ * rate has been set). A commission already marked paid/waived is left
+ * alone. Existing accepted demo applications already have these
+ * defaults from the new columns, so no data migration is needed.
+ */
+async function acceptApplication(ctx: Ctx, row: ApplicationRow): Promise<void> {
+  const db = ctx.db<typeof schema>();
+  const patch: { status: "accepted"; commissionStatus?: "pending" } = { status: "accepted" };
+  if (row.commissionStatus !== "paid" && row.commissionStatus !== "waived") {
+    patch.commissionStatus = "pending";
+  }
+  await db
+    .update(schema.applications)
+    .set(patch)
+    .where(eq(schema.applications.id, row.id));
+}
+
+async function loadApplication(ctx: Ctx, id: number): Promise<ApplicationRow | null> {
+  const db = ctx.db<typeof schema>();
+  const rows = await db
+    .select()
+    .from(schema.applications)
+    .where(eq(schema.applications.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Resolves a session token to its tutor, or null when missing/expired. */
+async function resolveTutor(ctx: Ctx, token: string): Promise<TutorRow | null> {
+  const db = ctx.db<typeof schema>();
+  const sessions = await db
+    .select()
+    .from(schema.tutorSessions)
+    .where(eq(schema.tutorSessions.token, token))
+    .limit(1);
+  const session = sessions[0];
+  if (!session) return null;
+  if (session.expiresAt.getTime() <= Date.now()) {
+    await db.delete(schema.tutorSessions).where(eq(schema.tutorSessions.id, session.id));
+    return null;
+  }
+  const rows = await db
+    .select()
+    .from(schema.tutors)
+    .where(eq(schema.tutors.id, session.tutorId))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 async function getSetting(ctx: Ctx, key: string): Promise<string> {
@@ -425,7 +594,7 @@ export const Actions = {
         .where(eq(schema.posts.status, "approved"))
         .orderBy(desc(schema.posts.createdAt));
       const counts = await applicationCounts(ctx);
-      let posts = rows.map((r) => toPost(r, counts.get(r.id) ?? 0));
+      let posts = rows.map((r) => toPost(r, counts.get(r.id) ?? 0, true));
       posts = posts.filter((p) => matchesFilters(p, args));
       posts.sort((a, b) => {
         if (a.featured !== b.featured) return a.featured ? -1 : 1;
@@ -456,7 +625,7 @@ export const Actions = {
       const row = rows[0];
       if (!row) return { post: null };
       const counts = await applicationCounts(ctx);
-      return { post: toPost(row, counts.get(row.id) ?? 0) };
+      return { post: toPost(row, counts.get(row.id) ?? 0, true) };
     },
   }),
 
@@ -560,6 +729,136 @@ export const Actions = {
     },
   }),
 
+  guardianViewApplications: defineAction({
+    description: "Guardian side of the middleman flow (no account): a guardian enters the phone number they posted with; when it matches the post's stored phone, returns that post's applications with applicant phones masked except for accepted ones (full phone shown). A wrong phone returns a generic error and no data.",
+    request: z.object({
+      postId: z.number().int().positive(),
+      phone: phoneSchema,
+    }),
+    response: z.object({
+      postTitle: z.string(),
+      applications: z.array(
+        z.object({
+          id: z.number(),
+          applicantName: z.string(),
+          applicantRole: z.enum(["tutor", "guardian"]),
+          applicantPhoneMasked: z.string(),
+          applicantPhone: z.string().nullable(),
+          message: z.string(),
+          status: applicationStatusEnum,
+          createdAt: z.string(),
+        }),
+      ),
+    }),
+    async handler(ctx, args) {
+      const db = ctx.db<typeof schema>();
+      const postRows = await db
+        .select()
+        .from(schema.posts)
+        .where(eq(schema.posts.id, args.postId))
+        .limit(1);
+      const post = postRows[0];
+      // Generic error either way: never confirm whether the number
+      // exists or which post it belongs to.
+      if (!post || !phonesMatch(args.phone, post.phone)) {
+        throw new Error("মোবাইল নম্বরটি এই পোস্টের সঙ্গে মিলছে না — আবার চেষ্টা করুন");
+      }
+      const rows = await db
+        .select()
+        .from(schema.applications)
+        .where(eq(schema.applications.postId, args.postId))
+        .orderBy(desc(schema.applications.createdAt));
+      return {
+        postTitle: post.title,
+        applications: rows.map((a) => ({
+          id: a.id,
+          applicantName: a.applicantName,
+          applicantRole: a.applicantRole,
+          applicantPhoneMasked: maskPhone(a.applicantPhone),
+          // Full phone only once the application is accepted.
+          applicantPhone: a.status === "accepted" ? a.applicantPhone : null,
+          message: a.message,
+          status: a.status,
+          createdAt: a.createdAt.toISOString(),
+        })),
+      };
+    },
+  }),
+
+  guardianSetApplicationStatus: defineAction({
+    description: "Guardian side: accepts or rejects an application on their own post. Proved by the phone number they posted with — no account or session.",
+    request: z.object({
+      postId: z.number().int().positive(),
+      phone: phoneSchema,
+      applicationId: z.number().int().positive(),
+      status: z.enum(["accepted", "rejected"]),
+    }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      const db = ctx.db<typeof schema>();
+      const postRows = await db
+        .select()
+        .from(schema.posts)
+        .where(eq(schema.posts.id, args.postId))
+        .limit(1);
+      const post = postRows[0];
+      if (!post || !phonesMatch(args.phone, post.phone)) {
+        throw new Error("মোবাইল নম্বরটি এই পোস্টের সঙ্গে মিলছে না — আবার চেষ্টা করুন");
+      }
+      const app = await loadApplication(ctx, args.applicationId);
+      if (!app || app.postId !== args.postId) {
+        throw new Error("আবেদনটি পাওয়া যাচ্ছে না");
+      }
+      if (args.status === "accepted") {
+        await acceptApplication(ctx, app);
+      } else {
+        await db
+          .update(schema.applications)
+          .set({ status: "rejected" })
+          .where(eq(schema.applications.id, app.id));
+      }
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
+  tutorSetApplicationStatus: defineAction({
+    description: "Tutor side: accepts, rejects or marks as contacted an application received on the tutor's own post. Requires the tutor's login token and ownership of the post.",
+    request: z.object({
+      token: z.string().min(1).max(200),
+      applicationId: z.number().int().positive(),
+      status: z.enum(["contacted", "accepted", "rejected"]),
+    }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      const db = ctx.db<typeof schema>();
+      const tutor = await resolveTutor(ctx, args.token);
+      if (!tutor) throw new Error("সেশন শেষ হয়ে গেছে — আবার লগইন করুন");
+      const app = await loadApplication(ctx, args.applicationId);
+      if (!app) throw new Error("আবেদনটি পাওয়া যাচ্ছে না");
+      const postRows = await db
+        .select()
+        .from(schema.posts)
+        .where(eq(schema.posts.id, app.postId))
+        .limit(1);
+      const post = postRows[0];
+      // Only applications on the tutor's own posts (phone-linked).
+      if (!post || post.phone !== tutor.phone) {
+        throw new Error("এই আবেদনটি আপনার পোস্টের নয়");
+      }
+      if (args.status === "accepted") {
+        await acceptApplication(ctx, app);
+      } else {
+        await db
+          .update(schema.applications)
+          .set({ status: args.status })
+          .where(eq(schema.applications.id, app.id));
+      }
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
   reportPost: defineAction({
     description: "Reports a post for admin review (wrong info, spam, inappropriate, other).",
     request: z.object({
@@ -623,7 +922,7 @@ export const Actions = {
         .from(schema.posts)
         .where(eq(schema.posts.status, "approved"));
       const counts = await applicationCounts(ctx);
-      const byId = new Map(rows.map((r) => [r.id, toPost(r, counts.get(r.id) ?? 0)]));
+      const byId = new Map(rows.map((r) => [r.id, toPost(r, counts.get(r.id) ?? 0, true)]));
       const posts = ids
         .map((id) => byId.get(id))
         .filter((p): p is z.infer<typeof postShape> => p != null);
@@ -700,6 +999,242 @@ export const Actions = {
       await db.delete(schema.savedSearches).where(eq(schema.savedSearches.id, args.id));
       ctx.invalidateQueries();
       return { ok: true };
+    },
+  }),
+
+  // ---------------- Tutor accounts ----------------
+  //
+  // Tutors sign up and log in; guardians never do — they keep posting
+  // without an account. Passwords are stored as a scrypt hash + random
+  // salt (never plaintext). Login returns a random token (30-day expiry)
+  // stored in tutor_sessions; the token is passed back as `token` on
+  // tutorMe / tutorUpdateProfile. The public profile never includes
+  // passwordHash / passwordSalt.
+
+  tutorSignup: defineAction({
+    description: "Registers a tutor account: name, phone, password, university, department, subjects, classes, areas, experience, fees, gender and an optional photo URL. Returns the public profile plus a login token.",
+    request: z.object({
+      name: z.string().trim().min(2, "আপনার নাম লিখুন").max(60),
+      phone: phoneSchema,
+      password: z.string().min(6, "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে").max(100),
+      university: z.string().trim().min(2, "বিশ্ববিদ্যালয়ের নাম লিখুন").max(120),
+      department: z.string().trim().min(2, "বিভাগের নাম লিখুন").max(120),
+      subjects: z.array(z.string().trim().min(1).max(40)).min(1, "অন্তত একটি বিষয় বেছে নিন").max(12),
+      classes: z.array(z.string().trim().min(1).max(40)).min(1, "অন্তত একটি শ্রেণি বেছে নিন").max(12),
+      areas: z.array(z.string().trim().min(1).max(80)).min(1, "অন্তত একটি এলাকা বেছে নিন").max(12),
+      experience: z.string().trim().max(200).default(""),
+      fees: z.string().trim().max(120).default(""),
+      gender: tutorGenderEnum,
+      photoUrl: z.string().trim().max(500).nullable().default(null),
+    }),
+    response: z.object({ tutor: tutorProfileShape, token: z.string() }),
+    async handler(ctx, args) {
+      const db = ctx.db<typeof schema>();
+      const existing = await db
+        .select({ id: schema.tutors.id })
+        .from(schema.tutors)
+        .where(eq(schema.tutors.phone, args.phone))
+        .limit(1);
+      if (existing[0]) {
+        throw new Error("এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট আছে — লগইন করুন");
+      }
+      const { hash, salt } = hashPassword(args.password);
+      const result = await db
+        .insert(schema.tutors)
+        .values({
+          name: args.name,
+          phone: args.phone,
+          passwordHash: hash,
+          passwordSalt: salt,
+          university: args.university,
+          department: args.department,
+          subjects: JSON.stringify(args.subjects),
+          classes: JSON.stringify(args.classes),
+          areas: JSON.stringify(args.areas),
+          experience: args.experience,
+          fees: args.fees,
+          gender: args.gender,
+          photoUrl: args.photoUrl && args.photoUrl.length > 0 ? args.photoUrl : null,
+        })
+        .returning();
+      const row = result[0];
+      if (!row) throw new Error("অ্যাকাউন্ট তৈরি হয়নি — আবার চেষ্টা করুন");
+      const token = await createTutorSession(ctx, row.id);
+      ctx.invalidateQueries();
+      return { tutor: toTutorProfile(row), token };
+    },
+  }),
+
+  tutorLogin: defineAction({
+    description: "Logs a tutor in with phone and password. Returns the public profile plus a login token.",
+    request: z.object({
+      phone: phoneSchema,
+      password: z.string().min(1).max(100),
+    }),
+    response: z.object({ tutor: tutorProfileShape, token: z.string() }),
+    async handler(ctx, args) {
+      const db = ctx.db<typeof schema>();
+      const rows = await db
+        .select()
+        .from(schema.tutors)
+        .where(eq(schema.tutors.phone, args.phone))
+        .limit(1);
+      const row = rows[0];
+      if (!row || !verifyPassword(args.password, row.passwordHash, row.passwordSalt)) {
+        throw new Error("মোবাইল নম্বর বা পাসওয়ার্ড ভুল — আবার চেষ্টা করুন");
+      }
+      const token = await createTutorSession(ctx, row.id);
+      return { tutor: toTutorProfile(row), token };
+    },
+  }),
+
+  tutorMe: defineAction({
+    description: "Returns the logged-in tutor's public profile for a session token.",
+    request: z.object({ token: z.string().min(1).max(200) }),
+    response: z.object({ tutor: tutorProfileShape }),
+    async handler(ctx, args) {
+      const row = await resolveTutor(ctx, args.token);
+      if (!row) throw new Error("সেশন শেষ হয়ে গেছে — আবার লগইন করুন");
+      return { tutor: toTutorProfile(row) };
+    },
+  }),
+
+  tutorUpdateProfile: defineAction({
+    description: "Lets a logged-in tutor edit their own profile (name, phone, university, department, subjects, classes, areas, experience, fees, gender, photo URL). Only the fields sent are changed.",
+    request: z.object({
+      token: z.string().min(1).max(200),
+      name: z.string().trim().min(2).max(60).optional(),
+      phone: phoneSchema.optional(),
+      university: z.string().trim().min(2).max(120).optional(),
+      department: z.string().trim().min(2).max(120).optional(),
+      subjects: z.array(z.string().trim().min(1).max(40)).min(1).max(12).optional(),
+      classes: z.array(z.string().trim().min(1).max(40)).min(1).max(12).optional(),
+      areas: z.array(z.string().trim().min(1).max(80)).min(1).max(12).optional(),
+      experience: z.string().trim().max(200).optional(),
+      fees: z.string().trim().max(120).optional(),
+      gender: tutorGenderEnum.optional(),
+      photoUrl: z.string().trim().max(500).nullable().optional(),
+    }),
+    response: z.object({ tutor: tutorProfileShape }),
+    async handler(ctx, args) {
+      const db = ctx.db<typeof schema>();
+      const row = await resolveTutor(ctx, args.token);
+      if (!row) throw new Error("সেশন শেষ হয়ে গেছে — আবার লগইন করুন");
+      if (args.phone !== undefined && args.phone !== row.phone) {
+        const clash = await db
+          .select({ id: schema.tutors.id })
+          .from(schema.tutors)
+          .where(eq(schema.tutors.phone, args.phone))
+          .limit(1);
+        if (clash[0]) throw new Error("এই মোবাইল নম্বরটি অন্য অ্যাকাউন্টে ব্যবহৃত হচ্ছে");
+      }
+      const patch: Partial<typeof row> & { updatedAt: Date } = { updatedAt: new Date() };
+      if (args.name !== undefined) patch.name = args.name;
+      if (args.phone !== undefined) patch.phone = args.phone;
+      if (args.university !== undefined) patch.university = args.university;
+      if (args.department !== undefined) patch.department = args.department;
+      if (args.subjects !== undefined) patch.subjects = JSON.stringify(args.subjects);
+      if (args.classes !== undefined) patch.classes = JSON.stringify(args.classes);
+      if (args.areas !== undefined) patch.areas = JSON.stringify(args.areas);
+      if (args.experience !== undefined) patch.experience = args.experience;
+      if (args.fees !== undefined) patch.fees = args.fees;
+      if (args.gender !== undefined) patch.gender = args.gender;
+      if (args.photoUrl !== undefined) {
+        patch.photoUrl = args.photoUrl && args.photoUrl.length > 0 ? args.photoUrl : null;
+      }
+      await db.update(schema.tutors).set(patch).where(eq(schema.tutors.id, row.id));
+      const updated = await db
+        .select()
+        .from(schema.tutors)
+        .where(eq(schema.tutors.id, row.id))
+        .limit(1);
+      const fresh = updated[0];
+      if (!fresh) throw new Error("প্রোফাইল পাওয়া যাচ্ছে না");
+      ctx.invalidateQueries();
+      return { tutor: toTutorProfile(fresh) };
+    },
+  }),
+
+  tutorMyApplications: defineAction({
+    description: "Returns the logged-in tutor's applications: (a) applications the tutor sent, with the post title and the post author's (guardian's) phone — masked, except the FULL number once the application is accepted; and (b) applications received on the tutor's own posts, with the applicant's phone masked except the FULL number once the application is accepted.",
+    request: z.object({ token: z.string().min(1).max(200) }),
+    response: z.object({
+      sent: z.array(
+        z.object({
+          id: z.number(),
+          postId: z.number(),
+          postTitle: z.string(),
+          postAuthorPhoneMasked: z.string(),
+          postAuthorPhone: z.string().nullable(),
+          message: z.string(),
+          status: z.enum(["new", "contacted", "accepted", "rejected"]),
+          createdAt: z.string(),
+        }),
+      ),
+      received: z.array(
+        z.object({
+          id: z.number(),
+          postId: z.number(),
+          postTitle: z.string(),
+          applicantName: z.string(),
+          applicantPhoneMasked: z.string(),
+          applicantPhone: z.string().nullable(),
+          message: z.string(),
+          status: z.enum(["new", "contacted", "accepted", "rejected"]),
+          createdAt: z.string(),
+        }),
+      ),
+    }),
+    async handler(ctx, args) {
+      const db = ctx.db<typeof schema>();
+      const tutor = await resolveTutor(ctx, args.token);
+      if (!tutor) throw new Error("সেশন শেষ হয়ে গেছে — আবার লগইন করুন");
+      const apps = await db
+        .select()
+        .from(schema.applications)
+        .orderBy(desc(schema.applications.createdAt));
+      const postRows = await db.select().from(schema.posts);
+      const byId = new Map(postRows.map((p) => [p.id, p]));
+      const byDesc = (
+        a: { createdAt: Date },
+        b: { createdAt: Date },
+      ) => b.createdAt.getTime() - a.createdAt.getTime();
+      return {
+        sent: apps
+          .filter((a) => a.applicantPhone === tutor.phone)
+          .sort(byDesc)
+          .map((a) => {
+            const postPhone = byId.get(a.postId)?.phone ?? "";
+            return {
+              id: a.id,
+              postId: a.postId,
+              postTitle: byId.get(a.postId)?.title ?? "",
+              postAuthorPhoneMasked: maskPhone(postPhone),
+              // The guardian's full phone is revealed only once this
+              // application is accepted.
+              postAuthorPhone: a.status === "accepted" ? postPhone : null,
+              message: a.message,
+              status: a.status,
+              createdAt: a.createdAt.toISOString(),
+            };
+          }),
+        received: apps
+          .filter((a) => byId.get(a.postId)?.phone === tutor.phone)
+          .sort(byDesc)
+          .map((a) => ({
+            id: a.id,
+            postId: a.postId,
+            postTitle: byId.get(a.postId)?.title ?? "",
+            applicantName: a.applicantName,
+            applicantPhoneMasked: maskPhone(a.applicantPhone),
+            // The applicant's full phone is revealed only once this
+            // application is accepted.
+            applicantPhone: a.status === "accepted" ? a.applicantPhone : null,
+            message: a.message,
+            status: a.status,
+            createdAt: a.createdAt.toISOString(),
+          })),
+      };
     },
   }),
 
@@ -920,6 +1455,8 @@ export const Actions = {
           applicantRole: z.enum(["tutor", "guardian"]),
           message: z.string(),
           status: z.enum(["new", "contacted", "accepted", "rejected"]),
+          commissionAmount: z.number().nullable(),
+          commissionStatus: commissionStatusEnum,
           createdAt: z.string(),
         }),
       ),
@@ -947,6 +1484,8 @@ export const Actions = {
             applicantRole: r.applicantRole,
             message: r.message,
             status: r.status,
+            commissionAmount: r.commissionAmount,
+            commissionStatus: r.commissionStatus,
             createdAt: r.createdAt.toISOString(),
           };
         }),
@@ -966,9 +1505,40 @@ export const Actions = {
     async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
       await checkPasscode(ctx, args.passcode);
       const db = ctx.db<typeof schema>();
+      if (args.status === "accepted") {
+        const app = await loadApplication(ctx, args.id);
+        if (app) await acceptApplication(ctx, app);
+      } else {
+        await db
+          .update(schema.applications)
+          .set({ status: args.status })
+          .where(eq(schema.applications.id, args.id));
+      }
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
+  adminSetCommission: defineAction({
+    privileged: ADMIN_PRIVILEGED,
+    description: "Admin: edits a commission record on an application — the amount (BDT, empty allowed) and/or the status (pending, paid, waived). No commission rate is set anywhere; the amount is whatever the admin enters.",
+    request: z.object({
+      passcode: z.string().min(1).max(60),
+      id: z.number().int().positive(),
+      amount: z.number().int().min(0).max(10000000).nullable().optional(),
+      status: commissionStatusEnum.optional(),
+    }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      await checkPasscode(ctx, args.passcode);
+      const db = ctx.db<typeof schema>();
+      const patch: { commissionAmount?: number | null; commissionStatus?: "pending" | "paid" | "waived" } = {};
+      if (args.amount !== undefined) patch.commissionAmount = args.amount;
+      if (args.status !== undefined) patch.commissionStatus = args.status;
+      if (Object.keys(patch).length === 0) return { ok: true };
       await db
         .update(schema.applications)
-        .set({ status: args.status })
+        .set(patch)
         .where(eq(schema.applications.id, args.id));
       ctx.invalidateQueries();
       return { ok: true };

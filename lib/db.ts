@@ -73,6 +73,8 @@ export function ensureSchema(): Promise<void> {
             applicant_role TEXT NOT NULL DEFAULT 'tutor',
             message TEXT NOT NULL DEFAULT '',
             status TEXT NOT NULL DEFAULT 'new',
+            commission_amount INTEGER,
+            commission_status TEXT NOT NULL DEFAULT 'pending',
             created_at INTEGER NOT NULL
           )`,
           `CREATE TABLE IF NOT EXISTS reports (
@@ -115,9 +117,48 @@ export function ensureSchema(): Promise<void> {
             body TEXT NOT NULL,
             created_at INTEGER NOT NULL
           )`,
+          `CREATE TABLE IF NOT EXISTS tutors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            password_salt TEXT NOT NULL,
+            university TEXT NOT NULL DEFAULT '',
+            department TEXT NOT NULL DEFAULT '',
+            subjects TEXT NOT NULL DEFAULT '[]',
+            classes TEXT NOT NULL DEFAULT '[]',
+            areas TEXT NOT NULL DEFAULT '[]',
+            experience TEXT NOT NULL DEFAULT '',
+            fees TEXT NOT NULL DEFAULT '',
+            gender TEXT NOT NULL DEFAULT 'other',
+            photo_url TEXT,
+            verified INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )`,
+          `CREATE TABLE IF NOT EXISTS tutor_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT NOT NULL UNIQUE,
+            tutor_id INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL
+          )`,
         ],
         "write",
       );
+      // Backfill for databases created before the commission columns
+      // existed (the live Turso DB): ADD COLUMN is a no-op error when the
+      // column is already there, so both statements are safe to re-run.
+      for (const sql of [
+        "ALTER TABLE applications ADD COLUMN commission_amount INTEGER",
+        "ALTER TABLE applications ADD COLUMN commission_status TEXT NOT NULL DEFAULT 'pending'",
+      ]) {
+        try {
+          await db.execute(sql);
+        } catch {
+          /* column already exists — nothing to do */
+        }
+      }
     })();
   }
   return schemaReady;
