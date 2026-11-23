@@ -4159,8 +4159,8 @@ function Home({
           {t("heroBadge")}
         </span>
         <h2 className="mt-4 max-w-2xl text-3xl font-extrabold leading-tight sm:text-5xl">
-          {t("heroTitleStart")}{" "}
-          <span className="text-4xl font-black text-white sm:text-6xl">{t("heroTitleAccent")}</span>{" "}
+          {t("heroTitleStart")}
+          <span className="text-4xl font-black text-white sm:text-6xl">{"\u00A0"}{t("heroTitleAccent")}</span>{" "}
           {t("heroTitleEnd")}
         </h2>
         <p className="mt-3 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
@@ -4264,7 +4264,7 @@ function Home({
       <section className="mt-14 grid grid-cols-1 gap-6 rounded-3xl bg-[var(--navy)] px-5 py-8 text-white sm:px-8 sm:py-10 lg:grid-cols-2 lg:items-center">
         <div>
           <h2 className="text-2xl font-bold leading-tight sm:text-4xl">
-            {t("whyTitleA")} <span className="text-[#7cc7e8]">{t("whyTitleB")}</span>
+            {t("whyTitleA")} <span className="text-white">{t("whyTitleB")}</span>
           </h2>
           <p className="mt-3 max-w-md text-base leading-relaxed text-white/85">{t("whySub")}</p>
           <button
@@ -4521,7 +4521,7 @@ function SiteFooter({
   ];
   return (
     <footer className="mt-14 bg-[var(--navy)] text-white">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <div className="flex items-center gap-3">
             <img
@@ -4559,9 +4559,9 @@ function SiteFooter({
             </a>
           </div>
         </div>
-        <div>
+        <div className="lg:col-span-2">
           <h3 className="text-base font-bold">{t("footerQuick")}</h3>
-          <ul className="mt-3 space-y-2 text-sm text-white/80">
+          <ul className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2 text-sm text-white/80">
             {quickLinks.map((l) => (
               <li key={l.label}>
                 <button type="button" onClick={l.onClick} className="hover:text-white hover:underline">
@@ -4582,7 +4582,7 @@ function SiteFooter({
         </div>
         <div>
           <h3 className="text-base font-bold">{t("footerLegal")}</h3>
-          <ul className="mt-3 space-y-2 text-sm text-white/80">
+          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/80">
             <li>
               <button type="button" onClick={() => onLegal("privacy")} className="hover:text-white hover:underline">
                 {t("legalPrivacy")}
