@@ -19,6 +19,15 @@
 //    (client/src/assets/baraka-logo.data.ts), so the repo stays 100%
 //    text files for the GitHub push — the .webp itself is never needed
 //    by this build.
+//  - Emits the favicon at build time (barakaFavicon plugin below): it
+//    decodes client/src/assets/favicon.data.ts (base64 text, logo #4)
+//    into real favicon.png + favicon.ico in client/dist, and swaps the
+//    empty Hatch icon link in client/index.html for real favicon links.
+//    The source index.html keeps its empty `data:,` icon on purpose —
+//    the Hatch artifact must not fetch /favicon.ico outside the space's
+//    routes (see the comment in client/index.html). The binary favicon
+//    files are never stored in the repo: the GitHub snapshot push
+//    rejects binary files, so only the base64 text module is pushed.
 //  - Rewrites the Bun-only macro import in App.tsx
 //    (`import { actionFields } from "@hatch/space-sdk/fields" with
 //    { type: "macro" };`) to a plain import of the shim. Vite/esbuild
@@ -29,11 +38,46 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import {
+  FAVICON_PNG_BASE64,
+  FAVICON_ICO_BASE64,
+} from "./client/src/assets/favicon.data";
 
 const repoRoot = dirname(fileURLToPath(import.meta.url));
 const clientDir = resolve(repoRoot, "client");
 const shimPath = resolve(clientDir, "src/vercel-shim.ts");
 const logoDataPath = resolve(clientDir, "src/assets/baraka-logo.data.ts");
+
+// Favicon for the Vercel build only (logo #4, see favicon.data.ts).
+// The source client/index.html deliberately keeps its empty `data:,`
+// icon so the Hatch artifact never fetches /favicon.ico outside the
+// space's routes. This plugin, which runs only in the Vite/Vercel
+// build, emits real favicon files into dist and rewrites the built
+// index.html to link them.
+function barakaFavicon() {
+  return {
+    name: "baraka-favicon",
+    transformIndexHtml(html: string) {
+      // The matched tag already carries the line's leading indent, so
+      // only the continuation lines get their own indent here.
+      const faviconLinks =
+        '<link rel="icon" type="image/png" href="/favicon.png" />\n' +
+        '    <link rel="icon" type="image/x-icon" href="/favicon.ico" />\n' +
+        '    <link rel="apple-touch-icon" href="/favicon.png" />';
+      const replaced = html.replace(
+        /<link rel="icon" href="data:," \/>/,
+        faviconLinks,
+      );
+      return replaced === html ? null : replaced;
+    },
+    generateBundle(this: { emitFile: (f: unknown) => void }) {
+      const png = Buffer.from(FAVICON_PNG_BASE64, "base64");
+      const ico = Buffer.from(FAVICON_ICO_BASE64, "base64");
+      this.emitFile({ type: "asset", fileName: "favicon.png", source: png });
+      this.emitFile({ type: "asset", fileName: "favicon.ico", source: ico });
+    },
+  };
+}
 
 function hatchMacroRewrite() {
   return {
@@ -53,7 +97,7 @@ function hatchMacroRewrite() {
 
 export default defineConfig({
   root: clientDir,
-  plugins: [hatchMacroRewrite(), react(), tailwindcss()],
+  plugins: [hatchMacroRewrite(), barakaFavicon(), react(), tailwindcss()],
   resolve: {
     alias: [
       { find: "@hatch/space-sdk/client", replacement: shimPath },
