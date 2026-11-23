@@ -30,23 +30,23 @@ html[lang="bn"] {
 }
 
 :root {
-  color-scheme: light dark;
-  /* Baraka Tutors brand — matched to logo #4:
-     deep purple (book + graduation cap) and teal (swoosh + tassel) */
-  --bg: #f7f5fb;
+  color-scheme: light;
+  /* Baraka Tutors brand — Caretutors blue theme (#0E73B5), chosen by the
+     user from the researched tutor-site themes. Light mode only. */
+  --bg: #f7fafc;
   --surface: #ffffff;
-  --surface-2: #ede9f7;
-  --text: #1e1433;
-  --dim: #655d7e;
-  --border: #ddd3f0;
-  --accent: #6d28d9;
-  --accent-strong: #2e1065;
-  --accent-soft: #ede9fe;
-  --header-bg: #2e1065;
-  --teal: #0d9488;
-  --teal-strong: #115e59;
-  --teal-bright: #14b8a6;
-  --teal-soft: #ccfbf1;
+  --surface-2: #edf4f9;
+  --text: #111827;
+  --dim: #5b6b7a;
+  --border: #dce7f0;
+  --accent: #0e73b5;
+  --accent-strong: #0a5a8c;
+  --accent-soft: #e3f2fb;
+  --header-bg: #0e73b5;
+  --teal: #0e73b5;
+  --teal-strong: #0b5c8a;
+  --teal-bright: #2e9bd6;
+  --teal-soft: #e3f2fb;
   --amber: #d97706;
   --amber-soft: #fef3c7;
   --danger: #b91c1c;
@@ -57,29 +57,6 @@ html[lang="bn"] {
   --space-muted: var(--dim);
   --space-border: var(--border);
   --space-accent: var(--accent);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #120e1f;
-    --surface: #1e1833;
-    --surface-2: #2a2145;
-    --text: #f1edfa;
-    --dim: #a99ec7;
-    --border: #3a2f5c;
-    --accent: #8b5cf6;
-    --accent-strong: #c4b5fd;
-    --accent-soft: #31215e;
-    --header-bg: #24124d;
-    --teal: #2dd4bf;
-    --teal-strong: #5eead4;
-    --teal-bright: #2dd4bf;
-    --teal-soft: #134e4a;
-    --amber: #fbbf24;
-    --amber-soft: #3a2c07;
-    --danger: #f87171;
-    --danger-soft: #3d1414;
-  }
 }
 
 body {
