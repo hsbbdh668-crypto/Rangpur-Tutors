@@ -42,6 +42,7 @@ export async function GET(req: Request): Promise<Response> {
       area: url.searchParams.get("area") ?? undefined,
       mode: url.searchParams.get("mode") ?? undefined,
       medium: url.searchParams.get("medium") ?? undefined,
+      gender: url.searchParams.get("gender") ?? undefined,
       minSalary: url.searchParams.get("minSalary") ? Number(url.searchParams.get("minSalary")) : undefined,
       maxSalary: url.searchParams.get("maxSalary") ? Number(url.searchParams.get("maxSalary")) : undefined,
       sort: (url.searchParams.get("sort") as Filters["sort"]) ?? "newest",

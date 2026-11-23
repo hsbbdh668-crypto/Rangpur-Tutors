@@ -45,6 +45,7 @@ interface BoardFilters {
   area: string;
   mode: "" | "home" | "online" | "both";
   medium: "" | "bangla" | "english" | "both";
+  gender: "" | "male" | "female";
   minSalary: string;
   maxSalary: string;
   sort: "newest" | "salary_high" | "salary_low";
@@ -58,6 +59,7 @@ const EMPTY_FILTERS: BoardFilters = {
   area: "",
   mode: "",
   medium: "",
+  gender: "",
   minSalary: "",
   maxSalary: "",
   sort: "newest",
@@ -79,6 +81,20 @@ function Chip({ children, tone = "soft" }: { children: ReactNode; tone?: "soft" 
   );
 }
 
+/* Gender badge: guardian posts show what teacher they want, tutor posts
+   show the tutor's own gender (both stored in post.genderPref). */
+function GenderChip({ post }: { post: Post }) {
+  const { t } = useLang();
+  if (post.kind === "guardian") {
+    if (post.genderPref === "male") return <Chip>{t("wantsMaleChip")}</Chip>;
+    if (post.genderPref === "female") return <Chip>{t("wantsFemaleChip")}</Chip>;
+    return null;
+  }
+  if (post.genderPref === "male") return <Chip>{t("maleTeacherOpt")}</Chip>;
+  if (post.genderPref === "female") return <Chip>{t("femaleTeacherOpt")}</Chip>;
+  return null;
+}
+
 function Field({
   label,
   children,
@@ -94,6 +110,19 @@ function Field({
       {children}
       {hint ? <span className="mt-1 block text-xs text-[var(--dim)]">{hint}</span> : null}
     </label>
+  );
+}
+
+/* Headed section inside the create / admin-edit forms. Fields inside a
+   section lay out in the same 1-col (mobile) / 2-col grid as the form. */
+function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="sm:col-span-2">
+      <h3 className="border-b border-[var(--border)] pb-1.5 text-base font-bold text-[var(--text)]">
+        {title}
+      </h3>
+      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+    </div>
   );
 }
 
@@ -154,11 +183,14 @@ function PostCard({
   isFavorite,
   onOpen,
   onToggleFavorite,
+  preview,
 }: {
   post: Post;
   isFavorite: boolean;
   onOpen: (post: Post) => void;
   onToggleFavorite: (post: Post) => void;
+  /** Draft preview: hides the call / details / favourite actions. */
+  preview?: boolean;
 }) {
   const { lang, t } = useLang();
   const num = (n: number | string) => fmtNum(n, lang);
@@ -172,16 +204,19 @@ function PostCard({
           </Chip>
           {post.featured ? <Chip tone="amber">{t("chipFeatured")}</Chip> : null}
           {post.verified ? <Chip tone="green">{t("chipVerifiedTutor")}</Chip> : null}
+          <GenderChip post={post} />
         </div>
-        <button
-          type="button"
-          aria-label={isFavorite ? t("favRemoveAria") : t("favAddAria")}
-          aria-pressed={isFavorite}
-          onClick={() => onToggleFavorite(post)}
-          className="shrink-0 rounded-full px-2 text-xl leading-none"
-        >
-          {isFavorite ? "❤️" : "🤍"}
-        </button>
+        {preview ? null : (
+          <button
+            type="button"
+            aria-label={isFavorite ? t("favRemoveAria") : t("favAddAria")}
+            aria-pressed={isFavorite}
+            onClick={() => onToggleFavorite(post)}
+            className="shrink-0 rounded-full px-2 text-xl leading-none"
+          >
+            {isFavorite ? "❤️" : "🤍"}
+          </button>
+        )}
       </div>
 
       <button type="button" onClick={() => onOpen(post)} className="mt-2 text-left">
@@ -213,22 +248,24 @@ function PostCard({
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
         <span className="text-base font-bold text-[var(--accent-strong)]">{salaryText(post, lang)}</span>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={`tel:${post.phone.replace(/\s/g, "")}`}
-            aria-label={t("callAria", { name: post.authorName })}
-            className="rounded-full border border-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-[var(--accent-strong)]"
-          >
-            {t("callBtn")}
-          </a>
-          <button
-            type="button"
-            onClick={() => onOpen(post)}
-            className="rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-white"
-          >
-            {t("detailsBtn")}
-          </button>
-        </div>
+        {preview ? null : (
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={`tel:${post.phone.replace(/\s/g, "")}`}
+              aria-label={t("callAria", { name: post.authorName })}
+              className="rounded-full border border-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-[var(--accent-strong)]"
+            >
+              {t("callBtn")}
+            </a>
+            <button
+              type="button"
+              onClick={() => onOpen(post)}
+              className="rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-white"
+            >
+              {t("detailsBtn")}
+            </button>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -261,6 +298,7 @@ function Board({
       area: filters.area || undefined,
       mode: filters.mode || undefined,
       medium: filters.medium || undefined,
+      gender: filters.gender || undefined,
       minSalary: filters.minSalary ? Number(filters.minSalary) : undefined,
       maxSalary: filters.maxSalary ? Number(filters.maxSalary) : undefined,
       sort: filters.sort,
@@ -305,6 +343,7 @@ function Board({
           area: filters.area || undefined,
           mode: filters.mode || undefined,
           medium: filters.medium || undefined,
+          gender: filters.gender || undefined,
           minSalary: filters.minSalary ? Number(filters.minSalary) : undefined,
           maxSalary: filters.maxSalary ? Number(filters.maxSalary) : undefined,
           sort: filters.sort,
@@ -330,6 +369,7 @@ function Board({
     filters.area,
     filters.mode,
     filters.medium,
+    filters.gender,
     filters.minSalary,
     filters.maxSalary,
   ].filter(Boolean).length;
@@ -483,6 +523,20 @@ function Board({
                 <option value="both">{t("mediumBoth")}</option>
               </select>
             </Field>
+            <Field label={t("fGender")}>
+              <select
+                aria-label={t("fGender")}
+                className={selectCls}
+                value={filters.gender}
+                onChange={(e) =>
+                  setFilters({ ...filters, gender: e.target.value as BoardFilters["gender"] })
+                }
+              >
+                <option value="">{t("genderAllOpt")}</option>
+                <option value="male">{t("maleTeacherOpt")}</option>
+                <option value="female">{t("femaleTeacherOpt")}</option>
+              </select>
+            </Field>
             <Field label={t("fSort")}>
               <select
                 aria-label={t("fSort")}
@@ -578,6 +632,7 @@ function Board({
                       area: s.filters.area ?? "",
                       mode: s.filters.mode ?? "",
                       medium: s.filters.medium ?? "",
+                      gender: (s.filters.gender as BoardFilters["gender"] | undefined) ?? "",
                       minSalary: s.filters.minSalary != null ? String(s.filters.minSalary) : "",
                       maxSalary: s.filters.maxSalary != null ? String(s.filters.maxSalary) : "",
                       sort: s.filters.sort ?? "newest",
@@ -705,6 +760,9 @@ function PostDetail({
           { label: t("rowPrefTutor"), value: genderLabel(post.genderPref, lang) },
         ]
       : [
+          ...(post.genderPref !== "any"
+            ? [{ label: t("rowTutorGender"), value: genderLabel(post.genderPref, lang) }]
+            : []),
           ...(post.institution ? [{ label: t("rowInstitution"), value: post.institution }] : []),
           ...(post.experience ? [{ label: t("rowExperience"), value: post.experience }] : []),
           ...(post.availability ? [{ label: t("rowTime"), value: post.availability }] : []),
@@ -732,6 +790,7 @@ function PostDetail({
             </Chip>
             {post.featured ? <Chip tone="amber">{t("chipFeatured")}</Chip> : null}
             {post.verified ? <Chip tone="green">{t("chipVerifiedTutor")}</Chip> : null}
+            <GenderChip post={post} />
           </div>
           <button
             type="button"
@@ -999,6 +1058,38 @@ function PostForm({ onDone }: { onDone: () => void }) {
     onError: () => setError(t("postFail")),
   });
 
+  /* Live preview: the draft post as it will look on the board. */
+  const showPreview =
+    authorName.trim() !== "" || title.trim() !== "" || subjects.length > 0 || classes.length > 0;
+  const draftPost: Post = {
+    id: 0,
+    kind,
+    authorName: authorName.trim(),
+    phone: phone.trim(),
+    title: title.trim(),
+    subjects,
+    classes,
+    area,
+    addressNote: addressNote.trim(),
+    salaryMin: salaryMin ? Number(salaryMin) : null,
+    salaryMax: salaryMax ? Number(salaryMax) : null,
+    salaryNegotiable: negotiable,
+    daysPerWeek: daysPerWeek ? Number(daysPerWeek) : null,
+    mode,
+    medium,
+    genderPref,
+    studentGender,
+    description: description.trim(),
+    institution: institution.trim(),
+    experience: experience.trim(),
+    availability: availability.trim(),
+    status: "pending",
+    featured: false,
+    verified: false,
+    applicationCount: 0,
+    createdAt: new Date().toISOString(),
+  };
+
   if (doneStatus) {
     return (
       <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-5 py-10 text-center">
@@ -1019,6 +1110,7 @@ function PostForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
+    <>
     <form
       className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5"
       onSubmit={(e) => {
@@ -1039,6 +1131,7 @@ function PostForm({ onDone }: { onDone: () => void }) {
       <p className="mt-1 text-sm text-[var(--dim)]">
         {configQuery.data?.autoApprove ? t("noteAutoApprove") : t("notePendingApproval")}
       </p>
+      <p className="mt-1 text-sm font-medium text-[var(--dim)]">{t("requiredNote")}</p>
 
       <div className="mt-4 grid grid-cols-1 gap-2 min-[480px]:grid-cols-2" role="radiogroup" aria-label={t("postTypeAria")}>
         {(
@@ -1065,7 +1158,8 @@ function PostForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label={t("yourNameStar")}>
+        <FormSection title={t("secIdentity")}>
+          <Field label={t("yourNameStar")}>
           <input
             {...FIELDS.createPost.authorName}
             className={inputCls}
@@ -1084,8 +1178,10 @@ function PostForm({ onDone }: { onDone: () => void }) {
             placeholder="01XXXXXXXXX"
           />
         </Field>
-        <div className="sm:col-span-2">
-          <Field label={t("titleStar")}>
+        </FormSection>
+        <FormSection title={t("secSubjects")}>
+          <div className="sm:col-span-2">
+            <Field label={t("titleStar")}>
             <input
               {...FIELDS.createPost.title}
               className={inputCls}
@@ -1105,7 +1201,9 @@ function PostForm({ onDone }: { onDone: () => void }) {
             <ToggleChips options={CLASSES} selected={classes} onToggle={toggle(classes, setClasses)} ariaLabel={t("chooseClassesAria")} labelOf={(v) => classLabel(v, lang)} />
           </Field>
         </div>
-        <Field label={t("areaStar")}>
+        </FormSection>
+        <FormSection title={t("secArea")}>
+          <Field label={t("areaStar")}>
           <select aria-label={t("areaAria")} className={selectCls} value={area} onChange={(e) => setArea(e.target.value)}>
             <option value="">{t("chooseArea")}</option>
             {AREAS.map((a) => (
@@ -1124,7 +1222,9 @@ function PostForm({ onDone }: { onDone: () => void }) {
             placeholder={t("addressNotePh")}
           />
         </Field>
-        <Field label={kind === "guardian" ? t("budgetMinGuardian") : t("budgetMinTutor")}>
+        </FormSection>
+        <FormSection title={t("secTimeSalary")}>
+          <Field label={kind === "guardian" ? t("budgetMinGuardian") : t("budgetMinTutor")}>
           <input
             {...FIELDS.createPost.salaryMin}
             type="number"
@@ -1194,35 +1294,47 @@ function PostForm({ onDone }: { onDone: () => void }) {
             <option value="both">{t("mediumBoth")}</option>
           </select>
         </Field>
-        {kind === "guardian" ? (
-          <>
-            <Field label={t("studentGenderLabel")}>
-              <select
-                aria-label={t("studentGenderLabel")}
-                className={selectCls}
-                value={studentGender}
-                onChange={(e) => setStudentGender(e.target.value as typeof studentGender)}
-              >
-                <option value="any">{t("notSpecified")}</option>
-                <option value="male">{t("maleOpt")}</option>
-                <option value="female">{t("femaleOpt")}</option>
-              </select>
+          {kind === "tutor" ? (
+            <Field label={t("availabilityLabel")}>
+              <input
+                {...FIELDS.createPost.availability}
+                className={inputCls}
+                value={availability}
+                onChange={(e) => setAvailability(e.target.value)}
+                placeholder={t("availabilityPh")}
+              />
             </Field>
-            <Field label={t("prefTutorLabel")}>
-              <select
-                aria-label={t("prefTutorLabel")}
-                className={selectCls}
-                value={genderPref}
-                onChange={(e) => setGenderPref(e.target.value as typeof genderPref)}
-              >
-                <option value="any">{t("anyOpt")}</option>
-                <option value="male">{t("maleTutorOpt")}</option>
-                <option value="female">{t("femaleTutorOpt")}</option>
-              </select>
-            </Field>
-          </>
-        ) : (
-          <>
+          ) : null}
+        </FormSection>
+        <FormSection title={t("secGenderPref")}>
+          {kind === "guardian" ? (
+            <>
+              <Field label={t("studentGenderLabel")}>
+                <select
+                  aria-label={t("studentGenderLabel")}
+                  className={selectCls}
+                  value={studentGender}
+                  onChange={(e) => setStudentGender(e.target.value as typeof studentGender)}
+                >
+                  <option value="any">{t("notSpecified")}</option>
+                  <option value="male">{t("maleOpt")}</option>
+                  <option value="female">{t("femaleOpt")}</option>
+                </select>
+              </Field>
+              <Field label={t("prefTutorLabel")}>
+                <select
+                  aria-label={t("prefTutorLabel")}
+                  className={selectCls}
+                  value={genderPref}
+                  onChange={(e) => setGenderPref(e.target.value as typeof genderPref)}
+                >
+                  <option value="any">{t("anyOpt")}</option>
+                  <option value="male">{t("maleTutorOpt")}</option>
+                  <option value="female">{t("femaleTutorOpt")}</option>
+                </select>
+              </Field>
+            </>
+          ) : (
             <Field label={t("yourGenderLabel")}>
               <select
                 aria-label={t("yourGenderLabel")}
@@ -1235,47 +1347,44 @@ function PostForm({ onDone }: { onDone: () => void }) {
                 <option value="female">{t("femaleOpt")}</option>
               </select>
             </Field>
-            <Field label={t("institutionLabel")}>
-              <input
-                {...FIELDS.createPost.institution}
+          )}
+        </FormSection>
+        <FormSection title={t("secDetails")}>
+          {kind === "tutor" ? (
+            <>
+              <Field label={t("institutionLabel")}>
+                <input
+                  {...FIELDS.createPost.institution}
+                  className={inputCls}
+                  value={institution}
+                  onChange={(e) => setInstitution(e.target.value)}
+                  placeholder={t("institutionPh")}
+                />
+              </Field>
+              <Field label={t("experienceLabel")}>
+                <input
+                  {...FIELDS.createPost.experience}
+                  className={inputCls}
+                  value={experience}
+                  onChange={(e) => setExperience(e.target.value)}
+                  placeholder={t("experiencePh")}
+                />
+              </Field>
+            </>
+          ) : null}
+          <div className="sm:col-span-2">
+            <Field label={t("descriptionLabel")}>
+              <textarea
+                {...FIELDS.createPost.description}
                 className={inputCls}
-                value={institution}
-                onChange={(e) => setInstitution(e.target.value)}
-                placeholder={t("institutionPh")}
+                rows={4}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={kind === "guardian" ? t("descPhGuardian") : t("descPhTutor")}
               />
             </Field>
-            <Field label={t("experienceLabel")}>
-              <input
-                {...FIELDS.createPost.experience}
-                className={inputCls}
-                value={experience}
-                onChange={(e) => setExperience(e.target.value)}
-                placeholder={t("experiencePh")}
-              />
-            </Field>
-            <Field label={t("availabilityLabel")}>
-              <input
-                {...FIELDS.createPost.availability}
-                className={inputCls}
-                value={availability}
-                onChange={(e) => setAvailability(e.target.value)}
-                placeholder={t("availabilityPh")}
-              />
-            </Field>
-          </>
-        )}
-        <div className="sm:col-span-2">
-          <Field label={t("descriptionLabel")}>
-            <textarea
-              {...FIELDS.createPost.description}
-              className={inputCls}
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={kind === "guardian" ? t("descPhGuardian") : t("descPhTutor")}
-            />
-          </Field>
-        </div>
+          </div>
+        </FormSection>
       </div>
 
       {error ? <p className="mt-4 text-sm font-medium text-[var(--danger)]">{error}</p> : null}
@@ -1287,6 +1396,21 @@ function PostForm({ onDone }: { onDone: () => void }) {
         {mutation.isPending ? t("submitting") : t("submitPostBtn")}
       </button>
     </form>
+
+    {/* Live preview — updates as the user types. */}
+    <div className="mt-5">
+      <h3 className="text-base font-bold text-[var(--text)]">{t("previewTitle")}</h3>
+      {showPreview ? (
+        <div className="mt-2">
+          <PostCard post={draftPost} isFavorite={false} onOpen={() => {}} onToggleFavorite={() => {}} preview />
+        </div>
+      ) : (
+        <p className="mt-2 rounded-[var(--radius)] border border-dashed border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--dim)]">
+          {t("previewEmpty")}
+        </p>
+      )}
+    </div>
+    </>
   );
 }
 
@@ -1901,15 +2025,30 @@ function AdminEditPost({
   onSaved: () => void;
 }) {
   const { lang, t } = useLang();
+  const num = (n: number | string) => fmtNum(n, lang);
   const [title, setTitle] = useState(post.title);
   const [authorName, setAuthorName] = useState(post.authorName);
   const [phone, setPhone] = useState(post.phone);
+  const [subjects, setSubjects] = useState<string[]>(post.subjects);
+  const [classes, setClasses] = useState<string[]>(post.classes);
   const [area, setArea] = useState(post.area);
+  const [addressNote, setAddressNote] = useState(post.addressNote);
   const [salaryMin, setSalaryMin] = useState(post.salaryMin != null ? String(post.salaryMin) : "");
   const [salaryMax, setSalaryMax] = useState(post.salaryMax != null ? String(post.salaryMax) : "");
   const [negotiable, setNegotiable] = useState(post.salaryNegotiable);
+  const [daysPerWeek, setDaysPerWeek] = useState(post.daysPerWeek != null ? String(post.daysPerWeek) : "");
+  const [mode, setMode] = useState<Post["mode"]>(post.mode);
+  const [medium, setMedium] = useState<Post["medium"]>(post.medium);
+  const [genderPref, setGenderPref] = useState<Post["genderPref"]>(post.genderPref);
+  const [studentGender, setStudentGender] = useState<Post["studentGender"]>(post.studentGender);
   const [description, setDescription] = useState(post.description);
+  const [institution, setInstitution] = useState(post.institution);
+  const [experience, setExperience] = useState(post.experience);
+  const [availability, setAvailability] = useState(post.availability);
   const [error, setError] = useState("");
+
+  const toggle = (list: string[], setList: (v: string[]) => void) => (value: string) =>
+    setList(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
 
   const mutation = useMutation({
     mutationFn: async () =>
@@ -1919,11 +2058,22 @@ function AdminEditPost({
         title: title.trim(),
         authorName: authorName.trim(),
         phone: phone.trim(),
+        subjects,
+        classes,
         area,
+        addressNote: addressNote.trim(),
         salaryMin: salaryMin ? Number(salaryMin) : null,
         salaryMax: salaryMax ? Number(salaryMax) : null,
         salaryNegotiable: negotiable,
+        daysPerWeek: daysPerWeek ? Number(daysPerWeek) : null,
+        mode,
+        medium,
+        genderPref,
+        studentGender,
         description: description.trim(),
+        institution: institution.trim(),
+        experience: experience.trim(),
+        availability: availability.trim(),
       }),
     onSuccess: onSaved,
     onError: () => setError(t("saveFail")),
@@ -1938,7 +2088,7 @@ function AdminEditPost({
       onClick={onClose}
     >
       <form
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-[var(--bg)] p-5 sm:rounded-3xl"
+        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-[var(--bg)] p-5 sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
           e.preventDefault();
@@ -1955,46 +2105,138 @@ function AdminEditPost({
             ✕
           </button>
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-3">
-          <Field label={t("fTitle")}>
-            <input {...FIELDS.adminUpdatePost.title} className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
-          </Field>
-          <Field label={t("fName")}>
-            <input {...FIELDS.adminUpdatePost.authorName} className={inputCls} value={authorName} onChange={(e) => setAuthorName(e.target.value)} />
-          </Field>
-          <Field label={t("fMobile")}>
-            <input {...FIELDS.adminUpdatePost.phone} type="tel" className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </Field>
-          <Field label={t("areaAria")}>
-            <select aria-label={t("areaAria")} className={selectCls} value={area} onChange={(e) => setArea(e.target.value)}>
-              {AREAS.map((a) => (
-                <option key={a} value={a}>
-                  {areaLabel(a, lang)}
-                </option>
-              ))}
-              {!AREAS.includes(area) ? <option value={area}>{areaLabel(area, lang)}</option> : null}
-            </select>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormSection title={t("secIdentity")}>
+            <Field label={t("fName")}>
+              <input {...FIELDS.adminUpdatePost.authorName} className={inputCls} value={authorName} onChange={(e) => setAuthorName(e.target.value)} />
+            </Field>
+            <Field label={t("fMobile")}>
+              <input {...FIELDS.adminUpdatePost.phone} type="tel" className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </Field>
+          </FormSection>
+          <FormSection title={t("secSubjects")}>
+            <div className="sm:col-span-2">
+              <Field label={t("fTitle")}>
+                <input {...FIELDS.adminUpdatePost.title} className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label={t("subjectsStar")}>
+                <ToggleChips options={SUBJECTS} selected={subjects} onToggle={toggle(subjects, setSubjects)} ariaLabel={t("chooseSubjectsAria")} labelOf={(v) => subjectLabel(v, lang)} />
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label={t("classesStar")}>
+                <ToggleChips options={CLASSES} selected={classes} onToggle={toggle(classes, setClasses)} ariaLabel={t("chooseClassesAria")} labelOf={(v) => classLabel(v, lang)} />
+              </Field>
+            </div>
+          </FormSection>
+          <FormSection title={t("secArea")}>
+            <Field label={t("areaAria")}>
+              <select aria-label={t("areaAria")} className={selectCls} value={area} onChange={(e) => setArea(e.target.value)}>
+                {AREAS.map((a) => (
+                  <option key={a} value={a}>
+                    {areaLabel(a, lang)}
+                  </option>
+                ))}
+                {!AREAS.includes(area) ? <option value={area}>{areaLabel(area, lang)}</option> : null}
+              </select>
+            </Field>
+            <Field label={t("addressNoteLabel")}>
+              <input {...FIELDS.adminUpdatePost.addressNote} className={inputCls} value={addressNote} onChange={(e) => setAddressNote(e.target.value)} placeholder={t("addressNotePh")} />
+            </Field>
+          </FormSection>
+          <FormSection title={t("secTimeSalary")}>
             <Field label={t("fMinSalary")}>
               <input {...FIELDS.adminUpdatePost.salaryMin} type="number" inputMode="numeric" aria-label={t("fMinSalary")} className={inputCls} value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} />
             </Field>
             <Field label={t("fMaxSalary")}>
               <input {...FIELDS.adminUpdatePost.salaryMax} type="number" inputMode="numeric" aria-label={t("fMaxSalary")} className={inputCls} value={salaryMax} onChange={(e) => setSalaryMax(e.target.value)} />
             </Field>
-          </div>
-          <label className="flex items-center gap-2 text-sm font-medium text-[var(--text)]">
-            <input type="checkbox" className="h-5 w-5 accent-[var(--accent)]" checked={negotiable} onChange={(e) => setNegotiable(e.target.checked)} />
-            {t("salaryNegotiable")}
-          </label>
-          <Field label={t("fDescription")}>
-            <textarea {...FIELDS.adminUpdatePost.description} className={inputCls} rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
-          </Field>
-          {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+            <label className="flex items-center gap-2 text-sm font-medium text-[var(--text)]">
+              <input type="checkbox" className="h-5 w-5 accent-[var(--accent)]" checked={negotiable} onChange={(e) => setNegotiable(e.target.checked)} />
+              {t("salaryNegotiable")}
+            </label>
+            <Field label={t("daysPerWeekLabel")}>
+              <select aria-label={t("daysPerWeekLabel")} className={selectCls} value={daysPerWeek} onChange={(e) => setDaysPerWeek(e.target.value)}>
+                <option value="">{t("notSpecified")}</option>
+                {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                  <option key={d} value={d}>
+                    {t("dayOption", { n: num(d) })}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={t("fMode")}>
+              <select aria-label={t("fMode")} className={selectCls} value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+                <option value="home">{t("modeHomeOpt")}</option>
+                <option value="online">{t("modeOnlineOpt")}</option>
+                <option value="both">{t("modeBothOpt")}</option>
+              </select>
+            </Field>
+            <Field label={t("fMedium")}>
+              <select aria-label={t("fMedium")} className={selectCls} value={medium} onChange={(e) => setMedium(e.target.value as typeof medium)}>
+                <option value="bangla">{t("mediumBangla")}</option>
+                <option value="english">{t("mediumEnglish")}</option>
+                <option value="both">{t("mediumBoth")}</option>
+              </select>
+            </Field>
+            {post.kind === "tutor" ? (
+              <Field label={t("availabilityLabel")}>
+                <input {...FIELDS.adminUpdatePost.availability} className={inputCls} value={availability} onChange={(e) => setAvailability(e.target.value)} placeholder={t("availabilityPh")} />
+              </Field>
+            ) : null}
+          </FormSection>
+          <FormSection title={t("secGenderPref")}>
+            {post.kind === "guardian" ? (
+              <>
+                <Field label={t("studentGenderLabel")}>
+                  <select aria-label={t("studentGenderLabel")} className={selectCls} value={studentGender} onChange={(e) => setStudentGender(e.target.value as typeof studentGender)}>
+                    <option value="any">{t("notSpecified")}</option>
+                    <option value="male">{t("maleOpt")}</option>
+                    <option value="female">{t("femaleOpt")}</option>
+                  </select>
+                </Field>
+                <Field label={t("prefTutorLabel")}>
+                  <select aria-label={t("prefTutorLabel")} className={selectCls} value={genderPref} onChange={(e) => setGenderPref(e.target.value as typeof genderPref)}>
+                    <option value="any">{t("anyOpt")}</option>
+                    <option value="male">{t("maleTutorOpt")}</option>
+                    <option value="female">{t("femaleTutorOpt")}</option>
+                  </select>
+                </Field>
+              </>
+            ) : (
+              <Field label={t("yourGenderLabel")}>
+                <select aria-label={t("yourGenderLabel")} className={selectCls} value={genderPref} onChange={(e) => setGenderPref(e.target.value as typeof genderPref)}>
+                  <option value="any">{t("notSpecified")}</option>
+                  <option value="male">{t("maleOpt")}</option>
+                  <option value="female">{t("femaleOpt")}</option>
+                </select>
+              </Field>
+            )}
+          </FormSection>
+          <FormSection title={t("secDetails")}>
+            {post.kind === "tutor" ? (
+              <>
+                <Field label={t("institutionLabel")}>
+                  <input {...FIELDS.adminUpdatePost.institution} className={inputCls} value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder={t("institutionPh")} />
+                </Field>
+                <Field label={t("experienceLabel")}>
+                  <input {...FIELDS.adminUpdatePost.experience} className={inputCls} value={experience} onChange={(e) => setExperience(e.target.value)} placeholder={t("experiencePh")} />
+                </Field>
+              </>
+            ) : null}
+            <div className="sm:col-span-2">
+              <Field label={t("fDescription")}>
+                <textarea {...FIELDS.adminUpdatePost.description} className={inputCls} rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+              </Field>
+            </div>
+          </FormSection>
+          {error ? <p className="text-sm text-[var(--danger)] sm:col-span-2">{error}</p> : null}
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="rounded-full bg-[var(--accent)] px-5 py-2.5 font-semibold text-white disabled:opacity-60"
+            className="rounded-full bg-[var(--accent)] px-5 py-2.5 font-semibold text-white disabled:opacity-60 sm:col-span-2"
           >
             {mutation.isPending ? t("saving") : t("saveBtn")}
           </button>

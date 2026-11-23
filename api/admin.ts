@@ -100,21 +100,47 @@ export async function POST(req: Request): Promise<Response> {
       case "updatePost": {
         const phone = str(b.phone).trim();
         if (!validPhone(phone)) return badRequest("সঠিক মোবাইল নম্বর দিন");
+        const id = num(b.id) ?? Number(b.id);
+        // Load the current row so fields the caller does not send are kept,
+        // never dropped.
+        const cur = await db.execute({ sql: "SELECT * FROM posts WHERE id = ? LIMIT 1", args: [id] });
+        const row = cur.rows[0] as Record<string, unknown> | undefined;
+        const pickStr = (key: string, fallback: unknown) =>
+          key in b ? str(b[key]) : String(fallback ?? "");
+        const pickEnum = (key: string, allowed: string[], fallback: unknown) =>
+          key in b && allowed.includes(str(b[key])) ? str(b[key]) : String(fallback ?? allowed[0]);
+        const pickList = (key: string, fallback: unknown) =>
+          Array.isArray(b[key]) ? JSON.stringify(strList(b[key]).slice(0, 12)) : String(fallback ?? "[]");
+        const pickNum = (key: string, fallback: unknown) =>
+          key in b ? num(b[key]) : fallback == null ? null : Number(fallback);
         await db.execute({
-          sql: `UPDATE posts SET title = ?, author_name = ?, phone = ?, area = ?,
-            salary_min = ?, salary_max = ?, salary_negotiable = ?, description = ?, updated_at = ?
+          sql: `UPDATE posts SET title = ?, author_name = ?, phone = ?, subjects = ?, classes = ?,
+            area = ?, address_note = ?, salary_min = ?, salary_max = ?, salary_negotiable = ?,
+            days_per_week = ?, mode = ?, medium = ?, gender_pref = ?, student_gender = ?,
+            description = ?, institution = ?, experience = ?, availability = ?, updated_at = ?
             WHERE id = ?`,
           args: [
             str(b.title).trim(),
             str(b.authorName).trim(),
             phone,
+            pickList("subjects", row?.subjects),
+            pickList("classes", row?.classes),
             str(b.area).trim(),
+            pickStr("addressNote", row?.address_note),
             num(b.salaryMin),
             num(b.salaryMax),
             b.salaryNegotiable === true ? 1 : 0,
+            pickNum("daysPerWeek", row?.days_per_week),
+            pickEnum("mode", ["home", "online", "both"], row?.mode),
+            pickEnum("medium", ["bangla", "english", "both"], row?.medium),
+            pickEnum("genderPref", ["any", "male", "female"], row?.gender_pref),
+            pickEnum("studentGender", ["any", "male", "female"], row?.student_gender),
             str(b.description),
+            pickStr("institution", row?.institution),
+            pickStr("experience", row?.experience),
+            pickStr("availability", row?.availability),
             Date.now(),
-            num(b.id) ?? Number(b.id),
+            id,
           ],
         });
         return json({ ok: true });

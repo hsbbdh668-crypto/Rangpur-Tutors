@@ -112,6 +112,7 @@ export interface SavedSearchFilters {
   area?: string;
   mode?: "home" | "online" | "both";
   medium?: "bangla" | "english" | "both";
+  gender?: "male" | "female";
   minSalary?: number;
   maxSalary?: number;
   sort?: "newest" | "salary_high" | "salary_low";
@@ -217,6 +218,7 @@ export const restApi = {
           area: args.area,
           mode: args.mode,
           medium: args.medium,
+          gender: args.gender,
           minSalary: args.minSalary,
           maxSalary: args.maxSalary,
           sort: args.sort,
@@ -344,11 +346,22 @@ export const restApi = {
     title: string;
     authorName: string;
     phone: string;
+    subjects: string[];
+    classes: string[];
     area: string;
+    addressNote: string;
     salaryMin: number | null;
     salaryMax: number | null;
     salaryNegotiable: boolean;
+    daysPerWeek: number | null;
+    mode: "home" | "online" | "both";
+    medium: "bangla" | "english" | "both";
+    genderPref: "any" | "male" | "female";
+    studentGender: "any" | "male" | "female";
     description: string;
+    institution: string;
+    experience: string;
+    availability: string;
   }): Promise<{ ok: boolean }> => {
     return post<{ ok: boolean }>("/api/admin", { action: "updatePost", ...args });
   },

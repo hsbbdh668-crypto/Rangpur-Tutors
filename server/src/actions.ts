@@ -312,6 +312,7 @@ const filtersShape = z.object({
   area: z.string().max(80).optional(),
   mode: modeEnum.optional(),
   medium: mediumEnum.optional(),
+  gender: genderEnum.optional(),
   minSalary: z.number().int().min(0).max(1000000).optional(),
   maxSalary: z.number().int().min(0).max(1000000).optional(),
   sort: z.enum(["newest", "salary_high", "salary_low"]).default("newest"),
@@ -326,6 +327,11 @@ function matchesFilters(p: z.infer<typeof postShape>, f: Filters): boolean {
   if (f.area && p.area !== f.area) return false;
   if (f.mode && p.mode !== "both" && p.mode !== f.mode) return false;
   if (f.medium && p.medium !== "both" && p.medium !== f.medium) return false;
+  // Teacher gender: a post matches when its genderPref is "any" (guardian
+  // accepts either gender) or equals the selected gender. This covers
+  // both cases — a guardian's preference and a tutor's own gender, both
+  // stored in gender_pref.
+  if (f.gender && p.genderPref !== "any" && p.genderPref !== f.gender) return false;
   if (f.minSalary != null) {
     const hi = p.salaryMax ?? p.salaryMin;
     if (!p.salaryNegotiable && (hi == null || hi < f.minSalary)) return false;
@@ -820,18 +826,29 @@ export const Actions = {
 
   adminUpdatePost: defineAction({
     privileged: ADMIN_PRIVILEGED,
-    description: "Admin: edits a post's core fields (title, phone, area, salary, description).",
+    description: "Admin: edits a post's full set of fields (same fields as the create form).",
     request: z.object({
       passcode: z.string().min(1).max(60),
       id: z.number().int().positive(),
       title: z.string().trim().min(5).max(120),
       authorName: z.string().trim().min(2).max(60),
       phone: phoneSchema,
+      subjects: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
+      classes: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
       area: z.string().trim().min(2).max(80),
+      addressNote: z.string().trim().max(160).default(""),
       salaryMin: z.number().int().min(0).max(1000000).nullable(),
       salaryMax: z.number().int().min(0).max(1000000).nullable(),
       salaryNegotiable: z.boolean(),
+      daysPerWeek: z.number().int().min(1).max(7).nullable().default(null),
+      mode: modeEnum.default("home"),
+      medium: mediumEnum.default("bangla"),
+      genderPref: genderEnum.default("any"),
+      studentGender: genderEnum.default("any"),
       description: z.string().trim().max(1200),
+      institution: z.string().trim().max(120).default(""),
+      experience: z.string().trim().max(200).default(""),
+      availability: z.string().trim().max(200).default(""),
     }),
     response: okResponse,
     async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
@@ -843,11 +860,22 @@ export const Actions = {
           title: args.title,
           authorName: args.authorName,
           phone: args.phone,
+          subjects: JSON.stringify(args.subjects),
+          classes: JSON.stringify(args.classes),
           area: args.area,
+          addressNote: args.addressNote,
           salaryMin: args.salaryMin,
           salaryMax: args.salaryMax,
           salaryNegotiable: args.salaryNegotiable ? 1 : 0,
+          daysPerWeek: args.daysPerWeek,
+          mode: args.mode,
+          medium: args.medium,
+          genderPref: args.genderPref,
+          studentGender: args.studentGender,
           description: args.description,
+          institution: args.institution,
+          experience: args.experience,
+          availability: args.availability,
           updatedAt: new Date(),
         })
         .where(eq(schema.posts.id, args.id));

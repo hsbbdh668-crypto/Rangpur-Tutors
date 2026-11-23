@@ -94,6 +94,7 @@ export interface Filters {
   area?: string;
   mode?: string;
   medium?: string;
+  gender?: string;
   minSalary?: number;
   maxSalary?: number;
   sort?: "newest" | "salary_high" | "salary_low";
@@ -106,6 +107,11 @@ export function matchesFilters(p: Post, f: Filters): boolean {
   if (f.area && p.area !== f.area) return false;
   if (f.mode && p.mode !== "both" && p.mode !== f.mode) return false;
   if (f.medium && p.medium !== "both" && p.medium !== f.medium) return false;
+  // Teacher gender: a post matches when its genderPref is "any" (guardian
+  // accepts either gender) or equals the selected gender. This covers
+  // both cases — a guardian's preference and a tutor's own gender, both
+  // stored in gender_pref.
+  if (f.gender && p.genderPref !== "any" && p.genderPref !== f.gender) return false;
   if (f.minSalary != null) {
     const hi = p.salaryMax ?? p.salaryMin;
     if (!p.salaryNegotiable && (hi == null || hi < f.minSalary)) return false;

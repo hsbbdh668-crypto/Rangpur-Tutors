@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tailwindcss-safe-area";
 
@@ -20,6 +19,14 @@
   --text-4xl: 36px;
   --text-4xl--line-height: 40px;
   --font-sans: "Hind Siliguri", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Bangla mode only: Anek Bangla (loaded via <link> in client/index.html).
+   English mode keeps the default --font-sans stack from @theme untouched.
+   This unlayered rule wins over the layered :root variable, and body
+   already uses font-family: var(--font-sans). */
+html[lang="bn"] {
+  --font-sans: "Anek Bangla", "Hind Siliguri", "Noto Sans Bengali", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 :root {

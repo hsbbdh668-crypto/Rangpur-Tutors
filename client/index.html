@@ -4,6 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="color-scheme" content="light dark" />
+    <!-- Anek Bangla (Bangla mode only — see theme.css html[lang="bn"]).
+         Loaded here instead of a CSS @import so it starts earlier and
+         works reliably on Vercel. Weights 400–800 cover body + headings. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@400;500;600;700;800&display=swap"
+    />
     <!-- Empty inline icon: stops the browser fetching /favicon.ico, which
          lives outside the space's routes and fails auth. Do NOT replace
          this with a real favicon link here — the Hatch artifact needs it
