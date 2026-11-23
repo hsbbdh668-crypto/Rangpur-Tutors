@@ -1,47 +1,52 @@
-# রংপুর টিউটর: ওয়েবসাইট
+# Baraka Tutors — বারাকা টিউটরস
 
-টিউটর খোঁজা, টিউশন পোস্ট করা ও টিউটর হিসেবে যুক্ত হওয়ার মোবাইল-ফ্রেন্ডলি ওয়েবসাইট (PWA)। কোনো বিল্ড স্টেপ লাগে না, সাধারণ HTML/CSS/JS।
+রংপুরের গার্ডিয়ান ও টিউটরদের টিউশন বোর্ড: গার্ডিয়ানরা টিউশন রিকোয়েস্ট পোস্ট করেন, টিউটররা টিউশন অফার পোস্ট করেন — সার্চ/ফিল্টার, আবেদন, রিপোর্ট, ফেভারিট, অ্যাডমিন প্যানেল আর AI লাইভ-চ্যাটসহ।
 
-## ফাইলগুলো
+**Live site: [barakatutors.vercel.app](https://barakatutors.vercel.app)** — Vercel project name is `barakatutors` (no space, no hyphen).
 
-| ফাইল | কাজ |
-|---|---|
-| `index.html`, `styles.css`, `app.js` | পুরো ওয়েবসাইট |
-| `config.js` | Supabase-এর কী, এলাকা, ক্লাস ও বিষয়ের তালিকা (এখানে বদলাবেন) |
-| `schema.sql` | Supabase-এর টেবিল ও নিরাপত্তা নিয়ম |
-| `manifest.json`, `sw.js`, `icon-*.png` | ফোনে অ্যাপের মতো ইনস্টল করার জন্য |
+## Features
 
-## ১. কম্পিউটারে চালিয়ে দেখুন
+- 🏠 Guardian tuition requests + 🎓 tutor offers, with admin approval flow (optional auto-approve)
+- 🔎 Search & filters: subject, class, Rangpur area, mode (home/online), medium, salary range, sorting; saved searches
+- ✉️ Applications/contact requests, ⚠️ post reports, ❤️ favourites
+- 🛠️ Full admin panel: approve/reject/close posts, featured pins, verified-tutor badges, edit/delete, applications & reports management, notice banner, settings
+- 💬 AI live chat on every page (Bangla/English): the assistant answers questions about posting, subjects, classes, areas and fees; money/verification topics are escalated to the admin, who can take over any chat from the admin chat inbox and turn the AI on/off
+- 🌐 Bilingual UI — Bangla by default, one-tap English; fully responsive on mobile, laptop and PC
+- 🎨 Logo #4 (open book + graduation cap + teal swoosh) with a matching deep-purple & teal theme
 
-`index.html` ডাবল ক্লিক করে খুললেই চলবে। এখন "ডেমো মোড" চালু থাকবে: নমুনা টিউটর দেখাবে, আর ফর্মের তথ্য শুধু আপনার ব্রাউজারে থাকবে।
+## Deploying to Vercel (barakatutors.vercel.app)
 
-## ২. ডেটাবেস যুক্ত করুন (Supabase, ফ্রি)
+1. **Push this repo to GitHub.**
+2. **Create the hosted database** (free): sign up at [turso.tech](https://turso.tech), create a database (e.g. named `barakatutors`), and copy its `libsql://…` URL and auth token. The tables are created automatically on first API call — the schema matches `server/src/schema.ts`.
+3. **Import the repo in Vercel** and set the **project name to `barakatutors`** (no space, no hyphen) so the address becomes `barakatutors.vercel.app`. `vercel.json` already sets the framework, build command and SPA rewrites — don't override them.
+4. **Set environment variables** in Vercel → Project → Settings → Environment Variables (see `.env.example`):
+   - `ADMIN_PASSCODE` — the admin panel passcode (required; it is **not** in the code)
+   - `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` — the hosted database
+   - `GROQ_API_KEY` — free key from [console.groq.com](https://console.groq.com) (no card), enables AI replies in the Vercel live chat. Primary model **GPT-OSS 120B** (human-like replies, ~1,000 free requests/day); when that limit is hit the chat automatically falls back to **GPT-OSS 20B** so it never stops. `AI_API_URL`/`AI_MODEL`/`AI_FALLBACK_MODEL` can override the endpoint/models
+5. **Deploy.** Every later push to the GitHub repo auto-deploys.
 
-1. supabase.com-এ নতুন প্রজেক্ট খুলুন।
-2. **SQL Editor** খুলে `schema.sql`-এর পুরোটা পেস্ট করে **Run** চাপুন।
-3. **Project Settings > API** থেকে `Project URL` ও `anon public` কী কপি করুন।
-4. `config.js`-এ `SUPABASE_URL` ও `SUPABASE_ANON_KEY`-তে বসান।
+## Project layout
 
-`anon` কী ব্রাউজারে থাকা স্বাভাবিক। `schema.sql`-এর নিয়মের কারণে সাইট থেকে শুধু ফর্ম জমা দেওয়া যায় এবং ফোন নম্বর কেউ পড়তে পারে না। **`service_role` কী কখনো এই ফাইলে বা GitHub-এ রাখবেন না।**
+| Path | What it is |
+| --- | --- |
+| `client/` | React + Tailwind front end (Bangla default, English switcher) |
+| `api/` | Real REST API routes for Vercel (Node runtime): `posts`, `config`, `apply`, `report`, `favorites`, `saved-searches`, `chat`, `admin` |
+| `lib/` | Hosted-DB layer (`@libsql/client` → Turso) + shared post/filter logic used by the API routes |
+| `server/` | The same features as typed actions for the Muse-hosted version; shares the Drizzle schema in `server/src/schema.ts` |
+| `drizzle/` | SQL migrations for the Muse-hosted database |
+| `vercel.json` | Vercel project config — name `barakatutors`, Vite build, `/api` + SPA rewrites |
 
-## ৩. Vercel-এ লাইভ করুন
+The admin passcode is resolved in this order: `ADMIN_PASSCODE` env var → passcode saved from the admin panel (settings table). There is no hard-coded default.
 
-1. এই ফোল্ডারটি GitHub-এ আপলোড করুন।
-2. vercel.com-এ **Add New > Project** থেকে ওই রিপোজিটরি ইমপোর্ট করুন।
-3. Framework Preset: **Other**। Build Command ও Output Directory খালি রাখুন। **Deploy** চাপুন।
-4. `https://আপনার-নাম.vercel.app` ঠিকানায় সাইট চালু হবে। ফোনের ব্রাউজারে "Add to Home screen" দিলে অ্যাপের মতো ইনস্টল হবে।
+## Local development
 
-Vercel-এর ফ্রি Hobby প্ল্যান শুধু ব্যক্তিগত ও অবাণিজ্যিক ব্যবহারের জন্য। ফি নেওয়া শুরু করলে Vercel-এর বর্তমান শর্ত দেখে নিন, অথবা একই ফোল্ডার Cloudflare Pages-এ তুললেও চলবে।
+```bash
+bun install
+cp .env.example .env   # fill in ADMIN_PASSCODE + TURSO_* values
+bun run build          # builds the Muse-hosted client + server bundle
+```
 
-## ৪. প্রতিদিনের কাজ
+## Notes
 
-- **টিউটর যাচাই:** Supabase > Table Editor > `tutors`। পরিচয় (স্টুডেন্ট আইডি/NID) দেখে নিশ্চিত হয়ে ওই সারির `verified` কলাম `true` করুন। এর পরই ওয়েবসাইটে প্রোফাইল দেখাবে।
-- **নতুন টিউশন:** `tuition_posts` টেবিলে অভিভাবকের ফোনসহ সব তথ্য থাকে। ম্যাচ করে নিজে যোগাযোগ করুন।
-- **আবেদন:** `applications` টেবিলে দেখুন।
-- **নিজের ফোন নম্বর বা ইউআরএল বদলানো:** `config.js` ও `index.html` এডিট করুন।
-
-## সীমাবদ্ধতা ও পরের ধাপ
-
-- ফর্মে এখনো ক্যাপচা নেই। স্প্যাম বাড়লে Cloudflare Turnstile যোগ করুন।
-- এডমিন প্যানেল আলাদা নেই, Supabase ড্যাশবোর্ডই এডমিন।
-- পরের ধাপ: `api/webhook.js` যোগ করে Messenger বট যুক্ত করা। তখন বট ও এই ওয়েবসাইট একই ডেটাবেস ব্যবহার করবে।
+- Phone numbers are shown on post cards so guardians and tutors can call each other directly — confirm salary and schedule before committing.
+- The AI assistant never handles money or verification decisions; those chats are flagged in the admin inbox (`needs admin`).

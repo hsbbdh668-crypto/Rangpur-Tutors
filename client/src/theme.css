@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tailwindcss-safe-area";
+
+@theme {
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 28px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 36px;
+  --text-4xl: 36px;
+  --text-4xl--line-height: 40px;
+  --font-sans: "Hind Siliguri", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root {
+  color-scheme: light dark;
+  /* Baraka Tutors brand — matched to logo #4:
+     deep purple (book + graduation cap) and teal (swoosh + tassel) */
+  --bg: #f7f5fb;
+  --surface: #ffffff;
+  --surface-2: #ede9f7;
+  --text: #1e1433;
+  --dim: #655d7e;
+  --border: #ddd3f0;
+  --accent: #6d28d9;
+  --accent-strong: #2e1065;
+  --accent-soft: #ede9fe;
+  --header-bg: #2e1065;
+  --teal: #0d9488;
+  --teal-strong: #115e59;
+  --teal-bright: #14b8a6;
+  --teal-soft: #ccfbf1;
+  --amber: #d97706;
+  --amber-soft: #fef3c7;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --radius: 14px;
+  --space-surface: var(--surface);
+  --space-surface-alt: var(--surface-2);
+  --space-muted: var(--dim);
+  --space-border: var(--border);
+  --space-accent: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #120e1f;
+    --surface: #1e1833;
+    --surface-2: #2a2145;
+    --text: #f1edfa;
+    --dim: #a99ec7;
+    --border: #3a2f5c;
+    --accent: #8b5cf6;
+    --accent-strong: #c4b5fd;
+    --accent-soft: #31215e;
+    --header-bg: #24124d;
+    --teal: #2dd4bf;
+    --teal-strong: #5eead4;
+    --teal-bright: #2dd4bf;
+    --teal-soft: #134e4a;
+    --amber: #fbbf24;
+    --amber-soft: #3a2c07;
+    --danger: #f87171;
+    --danger-soft: #3d1414;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* Responsive safeguards — clean layout on every screen size:
+   nothing may spill sideways, overlap or get clipped on small phones. */
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+}
+
+/* Long words / phone numbers / URLs wrap instead of pushing layout out. */
+.hatch-space-root {
+  overflow-x: clip;
+  overflow-wrap: break-word;
+}
+
+.hatch-space-root h1,
+.hatch-space-root h2,
+.hatch-space-root h3,
+.hatch-space-root p,
+.hatch-space-root span,
+.hatch-space-root dd {
+  min-width: 0;
+}
+
+/* Phone tap targets: at least 36px tall for comfortable touch. */
+@layer base {
+  button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) {
+    min-height: 2.25rem;
+  }
+}

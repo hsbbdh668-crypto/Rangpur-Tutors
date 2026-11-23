@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.bun-cache/
+
+# Build output
+dist/
+client/dist/
+client/dist-vercel/
+client/dist-cvm/
+.space-build/
+.space-build-cvm/
+.vercel/
+
+# Environment & secrets — never commit real values
+.env
+.env.*
+!.env.example
+
+# Local databases (production uses the hosted TURSO_DATABASE_URL database)
+app.db
+app.db-shm
+app.db-wal
+*.db
+*.db-journal
+
+# Runtime / tooling artefacts of the Muse workspace
+audits/
+.harness/
+.xmds-icon
+icon.webp
+
+# Binary logo asset: the Vercel build uses the text-only base64 copy in
+# client/src/assets/baraka-logo.data.ts (see vite.config.ts), so the .webp
+# itself must not be pushed — the GitHub snapshot rejects binary files.
+client/src/assets/baraka-logo.webp
+
+# Logs & OS files
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,519 @@
+// Bilingual UI (Bangla default, English optional).
+//
+// The chosen language is kept in localStorage ("baraka-lang") so it survives
+// reloads. Every UI string in the app goes through the dictionary below:
+// Bangla mode shows Bangla everywhere; English mode shows English everywhere
+// (user-written content such as post titles stays as the author wrote it).
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import type { Lang } from "./lib";
+
+export type { Lang };
+
+const S = {
+  /* shell */
+  appName: { bn: "বারাকা টিউটরস", en: "Baraka Tutors" },
+  appSub: { bn: "Baraka Tutors · রংপুর", en: "Rangpur, Bangladesh" },
+  tagline: {
+    bn: "রংপুরের গার্ডিয়ান ও টিউটরদের জন্য — টিউশন খুঁজুন, টিউটর খুঁজুন, সরাসরি যোগাযোগ করুন।",
+    en: "For guardians and tutors in Rangpur — find tuition, find a tutor, and contact them directly.",
+  },
+  navBoard: { bn: "বোর্ড", en: "Board" },
+  navPost: { bn: "পোস্ট করুন", en: "Post" },
+  navFavorites: { bn: "প্রিয়", en: "Favorites" },
+  navAdmin: { bn: "অ্যাডমিন", en: "Admin" },
+  mainMenu: { bn: "প্রধান মেনু", en: "Main menu" },
+  languageLabel: { bn: "ভাষা", en: "Language" },
+  footerLine1: {
+    bn: "বারাকা টিউটরস (Baraka Tutors) — রংপুরের সব এলাকার টিউশন ও টিউটর এক ঠিকানায়।",
+    en: "Baraka Tutors — tuition and tutors from every area of Rangpur, all in one place.",
+  },
+  footerLine2: {
+    bn: "যোগাযোগের আগে বেতন ও সময় ভালোভাবে নিশ্চিত হয়ে নিন।",
+    en: "Please confirm the salary and schedule carefully before making contact.",
+  },
+
+  /* post card */
+  chipGuardian: { bn: "🏠 গার্ডিয়ান খুঁজছেন", en: "🏠 Guardian looking" },
+  chipTutor: { bn: "🎓 টিউটর অফার", en: "🎓 Tutor offer" },
+  chipFeatured: { bn: "⭐ ফিচার্ড", en: "⭐ Featured" },
+  chipVerifiedTutor: { bn: "✓ যাচাইকৃত টিউটর", en: "✓ Verified tutor" },
+  favAddAria: { bn: "প্রিয় তালিকায় রাখুন", en: "Add to favorites" },
+  favRemoveAria: { bn: "প্রিয় তালিকা থেকে সরান", en: "Remove from favorites" },
+  daysWeek: { bn: "সপ্তাহে {n} দিন", en: "{n} days a week" },
+  callBtn: { bn: "📞 কল", en: "📞 Call" },
+  callAria: { bn: "{name}-কে কল করুন", en: "Call {name}" },
+  detailsBtn: { bn: "বিস্তারিত", en: "Details" },
+
+  /* board */
+  statGuardianPosts: { bn: "গার্ডিয়ানের টিউশন পোস্ট", en: "Guardian tuition posts" },
+  statTutorOffers: { bn: "টিউটরের অফার", en: "Tutor offers" },
+  statTotalApps: { bn: "মোট আবেদন", en: "Total applications" },
+  searchAria: { bn: "খুঁজুন", en: "Search" },
+  searchPlaceholder: {
+    bn: "বিষয়, এলাকা বা টিউটরের নাম লিখে খুঁজুন…",
+    en: "Search by subject, area or tutor name…",
+  },
+  kindAll: { bn: "সব পোস্ট", en: "All posts" },
+  kindGuardian: { bn: "টিউশন চাই (গার্ডিয়ান)", en: "Tuition wanted (Guardian)" },
+  kindTutor: { bn: "টিউটর অফার", en: "Tutor offers" },
+  postTypeAria: { bn: "পোস্টের ধরন", en: "Post type" },
+  filtersBtn: { bn: "🎚️ ফিল্টার", en: "🎚️ Filters" },
+  fSubject: { bn: "বিষয়", en: "Subject" },
+  allSubjects: { bn: "সব বিষয়", en: "All subjects" },
+  fClass: { bn: "শ্রেণি", en: "Class" },
+  allClasses: { bn: "সব শ্রেণি", en: "All classes" },
+  fArea: { bn: "এলাকা (রংপুর)", en: "Area (Rangpur)" },
+  areaAria: { bn: "এলাকা", en: "Area" },
+  allAreas: { bn: "সব এলাকা", en: "All areas" },
+  fMode: { bn: "পড়ানোর ধরন", en: "Teaching mode" },
+  anyOpt: { bn: "যেকোনো", en: "Any" },
+  modeHomeOpt: { bn: "বাসায় গিয়ে", en: "At home" },
+  modeOnlineOpt: { bn: "অনলাইন", en: "Online" },
+  modeBothOpt: { bn: "বাসায় + অনলাইন", en: "Home + Online" },
+  fMedium: { bn: "মাধ্যম", en: "Medium" },
+  anyMedium: { bn: "যেকোনো মাধ্যম", en: "Any medium" },
+  mediumBangla: { bn: "বাংলা মাধ্যম", en: "Bangla medium" },
+  mediumEnglish: { bn: "ইংরেজি মাধ্যম", en: "English medium" },
+  mediumBoth: { bn: "বাংলা + ইংরেজি", en: "Bangla + English" },
+  fSort: { bn: "সাজানো", en: "Sort by" },
+  sortNewest: { bn: "নতুন আগে", en: "Newest first" },
+  sortSalaryHigh: { bn: "বেতন: বেশি থেকে কম", en: "Salary: high to low" },
+  sortSalaryLow: { bn: "বেতন: কম থেকে বেশি", en: "Salary: low to high" },
+  fMinSalary: { bn: "সর্বনিম্ন বেতন (৳)", en: "Minimum salary (৳)" },
+  fMaxSalary: { bn: "সর্বোচ্চ বেতন (৳)", en: "Maximum salary (৳)" },
+  eg3000: { bn: "যেমন: 3000", en: "e.g. 3000" },
+  eg8000: { bn: "যেমন: 8000", en: "e.g. 8000" },
+  clearFilters: { bn: "সব ফিল্টার মুছুন", en: "Clear all filters" },
+  saveSearchNameAria: { bn: "সংরক্ষিত খোঁজের নাম", en: "Saved search name" },
+  saveSearchPlaceholder: { bn: "এই খোঁজের নাম দিন", en: "Name this search" },
+  saveSearchBtn: { bn: "💾 খোঁজ সংরক্ষণ", en: "💾 Save search" },
+  errSearchName: { bn: "আগে খোঁজের একটি নাম দিন", en: "Give the search a name first" },
+  savedSearches: { bn: "সংরক্ষিত খোঁজ:", en: "Saved searches:" },
+  deleteSearchAria: { bn: "{label} মুছুন", en: "Delete {label}" },
+  loadingPosts: { bn: "পোস্ট লোড হচ্ছে…", en: "Loading posts…" },
+  loadFailTitle: { bn: "পোস্ট লোড করা যায়নি", en: "Could not load posts" },
+  loadFailBody: {
+    bn: "ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।",
+    en: "Check your internet connection and try again.",
+  },
+  emptyPostsTitle: { bn: "এখনো কোনো পোস্ট নেই", en: "No posts yet" },
+  emptyPostsBody: {
+    bn: "এই ফিল্টারে কোনো পোস্ট পাওয়া যায়নি। ফিল্টার বদলে দেখুন, অথবা ‘পোস্ট করুন’ ট্যাব থেকে প্রথম পোস্টটি দিন — অনুমোদনের পর তা এখানে দেখা যাবে।",
+    en: "No posts match these filters. Try changing the filters, or add the first post from the Post tab — it will appear here once approved.",
+  },
+  postsFound: { bn: "{n}টি পোস্ট পাওয়া গেছে", en: "{n} posts found" },
+  genericFail: { bn: "হয়নি, আবার চেষ্টা করুন", en: "Something went wrong — please try again" },
+  saveFail: { bn: "সংরক্ষণ হয়নি", en: "Could not save" },
+
+  /* post detail */
+  closeAria: { bn: "বন্ধ করুন", en: "Close" },
+  rowArea: { bn: "এলাকা", en: "Area" },
+  rowSalary: { bn: "বেতন", en: "Salary" },
+  rowMode: { bn: "পড়ানোর ধরন", en: "Teaching mode" },
+  rowMedium: { bn: "মাধ্যম", en: "Medium" },
+  rowPerWeek: { bn: "সপ্তাহে", en: "Per week" },
+  perWeekValue: { bn: "{n} দিন", en: "{n} days" },
+  rowStudent: { bn: "শিক্ষার্থী", en: "Student" },
+  rowPrefTutor: { bn: "পছন্দের টিউটর", en: "Preferred tutor" },
+  rowInstitution: { bn: "প্রতিষ্ঠান", en: "Institution" },
+  rowExperience: { bn: "অভিজ্ঞতা", en: "Experience" },
+  rowTime: { bn: "সময়", en: "Time" },
+  rowPostDate: { bn: "পোস্টের তারিখ", en: "Posted on" },
+  rowApplications: { bn: "আবেদন এসেছে", en: "Applications" },
+  applicationsValue: { bn: "{n}টি", en: "{n}" },
+  detailsHeading: { bn: "বিস্তারিত", en: "Details" },
+  callNow: { bn: "📞 কল করুন: {phone}", en: "📞 Call: {phone}" },
+  favInBtn: { bn: "❤️ প্রিয়তে আছে", en: "❤️ In favorites" },
+  favAddBtn: { bn: "🤍 প্রিয় করুন", en: "🤍 Add to favorites" },
+  applyHeadingGuardian: { bn: "এই টিউশনিতে আবেদন করুন", en: "Apply for this tuition" },
+  applyHeadingTutor: { bn: "এই টিউটরের সঙ্গে যোগাযোগ করুন", en: "Contact this tutor" },
+  applyDoneMsg: {
+    bn: "✅ আপনার আবেদন পৌঁছেছে। পোস্টদাতা শীঘ্রই যোগাযোগ করবেন।",
+    en: "✅ Your application has been sent. The poster will contact you soon.",
+  },
+  yourName: { bn: "আপনার নাম", en: "Your name" },
+  namePhAsTutor: { bn: "টিউটর হিসেবে আপনার নাম", en: "Your name, as a tutor" },
+  namePhAsGuardian: { bn: "গার্ডিয়ান হিসেবে আপনার নাম", en: "Your name, as a guardian" },
+  mobileNumber: { bn: "মোবাইল নম্বর", en: "Mobile number" },
+  messageOptional: { bn: "বার্তা (ঐচ্ছিক)", en: "Message (optional)" },
+  msgPhForGuardianPost: {
+    bn: "আপনার অভিজ্ঞতা ও পড়ানোর সময় সম্পর্কে সংক্ষেপে লিখুন…",
+    en: "Briefly describe your experience and the times you can teach…",
+  },
+  msgPhForTutorPost: {
+    bn: "শিক্ষার্থী ও পড়ানোর সময় সম্পর্কে সংক্ষেপে লিখুন…",
+    en: "Briefly describe the student and the study times…",
+  },
+  errEnterName: { bn: "আপনার নাম লিখুন", en: "Please enter your name" },
+  errEnterPhone: { bn: "মোবাইল নম্বর দিন", en: "Please enter your mobile number" },
+  applyFail: { bn: "আবেদন পাঠানো যায়নি", en: "Could not send the application" },
+  sending: { bn: "পাঠানো হচ্ছে…", en: "Sending…" },
+  sendApplication: { bn: "আবেদন পাঠান", en: "Send application" },
+  reportDoneMsg: {
+    bn: "✅ রিপোর্ট পাওয়া গেছে — অ্যাডমিন যাচাই করে ব্যবস্থা নেবেন।",
+    en: "✅ Report received — the admin will review it and take action.",
+  },
+  reportReasonField: { bn: "রিপোর্টের কারণ", en: "Reason for the report" },
+  yourNameOptional: { bn: "আপনার নাম (ঐচ্ছিক)", en: "Your name (optional)" },
+  detailsOptional: { bn: "বিস্তারিত (ঐচ্ছিক)", en: "Details (optional)" },
+  sendReport: { bn: "রিপোর্ট পাঠান", en: "Send report" },
+  cancelBtn: { bn: "বাতিল", en: "Cancel" },
+  reportLink: {
+    bn: "⚠️ এই পোস্টে সমস্যা থাকলে রিপোর্ট করুন",
+    en: "⚠️ Report a problem with this post",
+  },
+  reportFail: { bn: "রিপোর্ট পাঠানো যায়নি", en: "Could not send the report" },
+
+  /* post form */
+  postDoneTitle: { bn: "পোস্ট জমা হয়েছে!", en: "Post submitted!" },
+  postDoneApproved: {
+    bn: "আপনার পোস্টটি এখন বোর্ডে সবার জন্য দেখা যাচ্ছে।",
+    en: "Your post is now live on the board for everyone to see.",
+  },
+  postDonePending: {
+    bn: "আপনার পোস্টটি অ্যাডমিনের অনুমোদনের অপেক্ষায় আছে। অনুমোদন হলেই বোর্ডে দেখা যাবে — সাধারণত খুব দ্রুতই হয়ে যায়।",
+    en: "Your post is waiting for admin approval. Once approved it will appear on the board — usually very quickly.",
+  },
+  goToBoard: { bn: "বোর্ডে যান", en: "Go to the board" },
+  newPostTitle: { bn: "নতুন পোস্ট দিন", en: "Create a new post" },
+  noteAutoApprove: {
+    bn: "পোস্ট দিলেই তা সরাসরি বোর্ডে প্রকাশিত হবে।",
+    en: "Posts are published directly on the board.",
+  },
+  notePendingApproval: {
+    bn: "পোস্ট দেওয়ার পর অ্যাডমিন অনুমোদন করলেই বোর্ডে দেখা যাবে।",
+    en: "After you post, it will appear on the board once the admin approves it.",
+  },
+  iAmGuardian: { bn: "🏠 আমি গার্ডিয়ান — টিউটর খুঁজছি", en: "🏠 I'm a guardian — looking for a tutor" },
+  iAmTutor: { bn: "🎓 আমি টিউটর — টিউশনি খুঁজছি", en: "🎓 I'm a tutor — looking for tuition" },
+  yourNameStar: { bn: "আপনার নাম *", en: "Your name *" },
+  nameExample: { bn: "যেমন: মোঃ রফিকুল ইসলাম", en: "e.g. Md. Rafiqul Islam" },
+  mobileStar: { bn: "মোবাইল নম্বর *", en: "Mobile number *" },
+  mobileHint: {
+    bn: "আগ্রহীরা এই নম্বরে কল করে যোগাযোগ করবেন",
+    en: "Interested people will call this number to contact you",
+  },
+  titleStar: { bn: "শিরোনাম *", en: "Title *" },
+  titlePhGuardian: {
+    bn: "যেমন: ১০ম শ্রেণির গণিতের জন্য অভিজ্ঞ টিউটর চাই",
+    en: "e.g. Experienced maths tutor needed for Class 10",
+  },
+  titlePhTutor: {
+    bn: "যেমন: গণিত ও পদার্থবিজ্ঞানে অভিজ্ঞ টিউটর — HSC পর্যন্ত পড়াই",
+    en: "e.g. Experienced maths and physics tutor — teaches up to HSC",
+  },
+  subjectsStar: { bn: "বিষয় *", en: "Subjects *" },
+  chooseSubjectsAria: { bn: "বিষয় বেছে নিন", en: "Choose subjects" },
+  classesStar: { bn: "শ্রেণি *", en: "Classes *" },
+  chooseClassesAria: { bn: "শ্রেণি বেছে নিন", en: "Choose classes" },
+  areaStar: { bn: "এলাকা *", en: "Area *" },
+  chooseArea: { bn: "এলাকা বেছে নিন", en: "Choose an area" },
+  addressNoteLabel: { bn: "ঠিকানার বিবরণ (ঐচ্ছিক)", en: "Address note (optional)" },
+  addressNotePh: { bn: "যেমন: লালবাগ মোড়ের কাছে", en: "e.g. Near Lalbag Mor" },
+  budgetMinGuardian: { bn: "বাজেট — সর্বনিম্ন (৳/মাস)", en: "Budget — minimum (৳/month)" },
+  budgetMinTutor: { bn: "প্রত্যাশিত বেতন — সর্বনিম্ন (৳/মাস)", en: "Expected salary — minimum (৳/month)" },
+  budgetMaxGuardian: { bn: "বাজেট — সর্বোচ্চ (৳/মাস)", en: "Budget — maximum (৳/month)" },
+  budgetMaxTutor: { bn: "প্রত্যাশিত বেতন — সর্বোচ্চ (৳/মাস)", en: "Expected salary — maximum (৳/month)" },
+  salaryNegotiable: { bn: "বেতন আলোচনা সাপেক্ষে", en: "Salary negotiable" },
+  daysPerWeekLabel: { bn: "সপ্তাহে কত দিন", en: "Days per week" },
+  notSpecified: { bn: "উল্লেখ নেই", en: "Not specified" },
+  dayOption: { bn: "{n} দিন", en: "{n} days" },
+  studentGenderLabel: { bn: "শিক্ষার্থীর লিঙ্গ", en: "Student's gender" },
+  prefTutorLabel: { bn: "পছন্দের টিউটর", en: "Preferred tutor" },
+  maleTutorOpt: { bn: "ছেলে টিউটর", en: "Male tutor" },
+  femaleTutorOpt: { bn: "মেয়ে টিউটর", en: "Female tutor" },
+  maleOpt: { bn: "ছেলে", en: "Male" },
+  femaleOpt: { bn: "মেয়ে", en: "Female" },
+  yourGenderLabel: { bn: "আপনার লিঙ্গ", en: "Your gender" },
+  institutionLabel: { bn: "প্রতিষ্ঠান (বিশ্ববিদ্যালয়/কলেজ)", en: "Institution (university/college)" },
+  institutionPh: { bn: "যেমন: বেগম রোকেয়া বিশ্ববিদ্যালয়", en: "e.g. Begum Rokeya University" },
+  experienceLabel: { bn: "অভিজ্ঞতা", en: "Experience" },
+  experiencePh: { bn: "যেমন: ৩ বছর ধরে HSC গণিত পড়াই", en: "e.g. Teaching HSC maths for 3 years" },
+  availabilityLabel: { bn: "কোন সময়ে পড়াতে পারবেন", en: "When can you teach?" },
+  availabilityPh: { bn: "যেমন: বিকেল ৪টা – রাত ৯টা", en: "e.g. 4 PM – 9 PM" },
+  descriptionLabel: { bn: "বিস্তারিত বিবরণ", en: "Detailed description" },
+  descPhGuardian: {
+    bn: "শিক্ষার্থীর অবস্থা, পড়ানোর সময়, বিশেষ কোনো শর্ত থাকলে লিখুন…",
+    en: "Write about the student's level, study times and any special requirements…",
+  },
+  descPhTutor: {
+    bn: "আপনার পড়ানোর পদ্ধতি, ফলাফল, বিশেষ দক্ষতা সম্পর্কে লিখুন…",
+    en: "Write about your teaching method, results and special skills…",
+  },
+  errTitleShort: { bn: "শিরোনাম অন্তত ৫ অক্ষরের লিখুন", en: "The title must be at least 5 characters" },
+  errPickSubject: { bn: "অন্তত একটি বিষয় বেছে নিন", en: "Choose at least one subject" },
+  errPickClass: { bn: "অন্তত একটি শ্রেণি বেছে নিন", en: "Choose at least one class" },
+  errPickArea: { bn: "এলাকা বেছে নিন", en: "Choose an area" },
+  errSalaryRange: {
+    bn: "সর্বনিম্ন বেতন সর্বোচ্চ বেতনের বেশি হতে পারে না",
+    en: "Minimum salary cannot be higher than maximum salary",
+  },
+  postFail: { bn: "পোস্ট করা যায়নি", en: "Could not submit the post" },
+  submitting: { bn: "জমা হচ্ছে…", en: "Submitting…" },
+  submitPostBtn: { bn: "📝 পোস্ট জমা দিন", en: "📝 Submit post" },
+
+  /* favorites */
+  loadingShort: { bn: "লোড হচ্ছে…", en: "Loading…" },
+  favEmptyTitle: { bn: "প্রিয় তালিকা খালি", en: "Your favorites list is empty" },
+  favEmptyBody: {
+    bn: "বোর্ডের যেকোনো পোস্টে 🤍 চাপ দিলে তা এখানে সংরক্ষিত থাকবে — পরে সহজে খুঁজে পেতে।",
+    en: "Tap 🤍 on any post on the board and it will be saved here, so you can find it easily later.",
+  },
+
+  /* admin */
+  adminLoginTitle: { bn: "🔐 অ্যাডমিন প্যানেল", en: "🔐 Admin Panel" },
+  adminLoginBody: {
+    bn: "এই অংশটি শুধু অ্যাডমিনের জন্য। পোস্ট অনুমোদন, টিউটর যাচাই, আবেদন ও রিপোর্ট — সবকিছু এখান থেকে পরিচালনা করা যায়।",
+    en: "This section is for the admin only. Post approvals, tutor verification, applications and reports — everything is managed from here.",
+  },
+  passcodeLabel: { bn: "অ্যাডমিন পাসকোড", en: "Admin passcode" },
+  passcodePh: { bn: "পাসকোড লিখুন", en: "Enter the passcode" },
+  errPasscodeEmpty: { bn: "পাসকোড লিখুন", en: "Enter the passcode" },
+  errPasscodeWrong: { bn: "ভুল পাসকোড — আবার চেষ্টা করুন", en: "Wrong passcode — please try again" },
+  errVerifyFail: { bn: "যাচাই করা যায়নি — আবার চেষ্টা করুন", en: "Could not verify — please try again" },
+  verifying: { bn: "যাচাই হচ্ছে…", en: "Verifying…" },
+  loginBtn: { bn: "প্রবেশ করুন", en: "Log in" },
+  adminPanelTitle: { bn: "🛠️ অ্যাডমিন প্যানেল", en: "🛠️ Admin Panel" },
+  logoutBtn: { bn: "লগ আউট", en: "Log out" },
+  statPending: { bn: "অনুমোদনের অপেক্ষায়", en: "Awaiting approval" },
+  statPublished: { bn: "প্রকাশিত পোস্ট", en: "Published posts" },
+  statGuardian: { bn: "গার্ডিয়ান পোস্ট", en: "Guardian posts" },
+  statTutor: { bn: "টিউটর অফার", en: "Tutor offers" },
+  statNewApps: { bn: "নতুন আবেদন", en: "New applications" },
+  statOpenReports: { bn: "খোলা রিপোর্ট", en: "Open reports" },
+  statRejectedClosed: { bn: "বাতিল / বন্ধ পোস্ট", en: "Rejected / closed posts" },
+  statsLoading: { bn: "পরিসংখ্যান লোড হচ্ছে…", en: "Loading statistics…" },
+  tabPosts: { bn: "📋 পোস্টসমূহ", en: "📋 Posts" },
+  tabPostsPendingSuffix: { bn: " ({n} অপেক্ষমাণ)", en: " ({n} pending)" },
+  tabApplications: { bn: "✉️ আবেদন", en: "✉️ Applications" },
+  tabAppsNewSuffix: { bn: " ({n} নতুন)", en: " ({n} new)" },
+  tabReports: { bn: "⚠️ রিপোর্ট", en: "⚠️ Reports" },
+  tabReportsSuffix: { bn: " ({n})", en: " ({n})" },
+  tabSettings: { bn: "⚙️ সেটিংস", en: "⚙️ Settings" },
+  adminSectionsAria: { bn: "অ্যাডমিন বিভাগ", en: "Admin sections" },
+  filterStatusAria: { bn: "স্ট্যাটাস অনুযায়ী ছাঁকুন", en: "Filter by status" },
+  allStatuses: { bn: "সব স্ট্যাটাস", en: "All statuses" },
+  statusPending: { bn: "অপেক্ষমাণ", en: "Pending" },
+  statusApproved: { bn: "প্রকাশিত", en: "Published" },
+  statusRejected: { bn: "বাতিল", en: "Rejected" },
+  statusClosed: { bn: "বন্ধ", en: "Closed" },
+  filterKindAria: { bn: "ধরন অনুযায়ী ছাঁকুন", en: "Filter by type" },
+  allKinds: { bn: "সব ধরন", en: "All types" },
+  guardianWord: { bn: "গার্ডিয়ান", en: "Guardian" },
+  tutorWord: { bn: "টিউটর", en: "Tutor" },
+  adminNoPostsTitle: { bn: "কোনো পোস্ট নেই", en: "No posts" },
+  adminNoPostsBody: { bn: "এই ফিল্টারে কোনো পোস্ট পাওয়া যায়নি।", en: "No posts match this filter." },
+  chipVerifiedShort: { bn: "✓ যাচাইকৃত", en: "✓ Verified" },
+  applicationsCount: { bn: "আবেদন: {n}", en: "Applications: {n}" },
+  approveBtn: { bn: "✓ অনুমোদন", en: "✓ Approve" },
+  rejectBtn: { bn: "বাতিল", en: "Reject" },
+  closeBtn: { bn: "বন্ধ করুন", en: "Close" },
+  rePendingBtn: { bn: "পুনরায় অপেক্ষমাণ করুন", en: "Move back to pending" },
+  featuredRemoveBtn: { bn: "⭐ ফিচার্ড সরান", en: "⭐ Remove featured" },
+  featuredAddBtn: { bn: "⭐ ফিচার্ড করুন", en: "⭐ Make featured" },
+  verifyRemoveBtn: { bn: "✓ যাচাই বাতিল", en: "✓ Remove verification" },
+  verifyTutorBtn: { bn: "✓ টিউটর যাচাই করুন", en: "✓ Verify tutor" },
+  editBtn: { bn: "✏️ সম্পাদনা", en: "✏️ Edit" },
+  confirmDeleteBtn: { bn: "নিশ্চিত মুছুন", en: "Confirm delete" },
+  keepBtn: { bn: "থাক", en: "Keep it" },
+  deleteBtn: { bn: "🗑️ মুছুন", en: "🗑️ Delete" },
+  failedShort: { bn: "হয়নি", en: "Failed" },
+  couldNotDelete: { bn: "মোছা যায়নি", en: "Could not delete" },
+  noAppsTitle: { bn: "কোনো আবেদন নেই", en: "No applications" },
+  noAppsBody: {
+    bn: "বোর্ডের পোস্টে আবেদন এলেই তা এখানে দেখা যাবে।",
+    en: "Applications to posts on the board will appear here.",
+  },
+  appStatusNew: { bn: "নতুন", en: "New" },
+  appStatusContacted: { bn: "যোগাযোগ হয়েছে", en: "Contacted" },
+  appStatusAccepted: { bn: "গৃহীত", en: "Accepted" },
+  appStatusRejected: { bn: "প্রত্যাখ্যাত", en: "Rejected" },
+  tutorApplicationChip: { bn: "টিউটরের আবেদন", en: "Tutor's application" },
+  guardianContactChip: { bn: "গার্ডিয়ানের যোগাযোগ", en: "Guardian's contact" },
+  postColon: { bn: "পোস্ট:", en: "Post:" },
+  markContactedBtn: { bn: "যোগাযোগ হয়েছে", en: "Mark as contacted" },
+  markAcceptedBtn: { bn: "গৃহীত করুন", en: "Accept" },
+  markRejectedBtn: { bn: "প্রত্যাখ্যান", en: "Reject" },
+  markNewBtn: { bn: "নতুন করুন", en: "Mark as new" },
+  deleteWordBtn: { bn: "মুছুন", en: "Delete" },
+  noReportsTitle: { bn: "কোনো রিপোর্ট নেই", en: "No reports" },
+  noReportsBody: {
+    bn: "ব্যবহারকারীরা পোস্টে রিপোর্ট করলে তা এখানে আসবে।",
+    en: "When users report a post, it will appear here.",
+  },
+  reportStatusOpen: { bn: "খোলা", en: "Open" },
+  reportStatusResolved: { bn: "সমাধান হয়েছে", en: "Resolved" },
+  reportStatusDismissed: { bn: "উপেক্ষিত", en: "Dismissed" },
+  reporterColon: { bn: "রিপোর্টকারী:", en: "Reporter:" },
+  resolveBtn: { bn: "সমাধান হয়েছে", en: "Mark resolved" },
+  dismissBtn: { bn: "উপেক্ষা করুন", en: "Dismiss" },
+  reopenBtn: { bn: "আবার খুলুন", en: "Reopen" },
+
+  /* admin edit post */
+  editPostTitle: { bn: "✏️ পোস্ট সম্পাদনা", en: "✏️ Edit post" },
+  editPostAria: { bn: "পোস্ট সম্পাদনা", en: "Edit post" },
+  fTitle: { bn: "শিরোনাম", en: "Title" },
+  fName: { bn: "নাম", en: "Name" },
+  fMobile: { bn: "মোবাইল", en: "Mobile" },
+  fDescription: { bn: "বিবরণ", en: "Description" },
+  errTitleAdmin: { bn: "শিরোনাম অন্তত ৫ অক্ষরের হতে হবে", en: "The title must be at least 5 characters" },
+  errNameAdmin: { bn: "নাম লিখুন", en: "Enter a name" },
+  errPhoneAdmin: { bn: "ফোন নম্বর দিন", en: "Enter a phone number" },
+  saving: { bn: "সংরক্ষণ হচ্ছে…", en: "Saving…" },
+  saveBtn: { bn: "সংরক্ষণ করুন", en: "Save" },
+
+  /* admin settings */
+  noticeLabel: { bn: "নোটিস ব্যানার", en: "Notice banner" },
+  noticeHint: {
+    bn: "বোর্ডের একদম উপরে দেখানো হবে। খালি রাখলে ব্যানার দেখাবে না।",
+    en: "Shown at the very top of the board. Leave it empty to hide the banner.",
+  },
+  noticePh: { bn: "যেমন: ঈদের ছুটিতে অফিস বন্ধ থাকবে…", en: "e.g. The office will be closed during the Eid holidays…" },
+  autoApproveLabel: { bn: "নতুন পোস্ট সরাসরি প্রকাশ (অটো-অনুমোদন)", en: "Publish new posts directly (auto-approve)" },
+  autoApproveHint: {
+    bn: "চালু থাকলে নতুন পোস্ট অ্যাডমিনের অনুমোদন ছাড়াই বোর্ডে দেখা যাবে।",
+    en: "When on, new posts appear on the board without admin approval.",
+  },
+  newPasscodeLabel: { bn: "নতুন অ্যাডমিন পাসকোড", en: "New admin passcode" },
+  newPasscodeHint: { bn: "বদলাতে না চাইলে খালি রাখুন।", en: "Leave empty if you don't want to change it." },
+  errPasscodeShort: {
+    bn: "নতুন পাসকোড অন্তত ৪ অক্ষরের হতে হবে",
+    en: "The new passcode must be at least 4 characters",
+  },
+  settingsSavedMsg: { bn: "✅ সেটিংস সংরক্ষিত হয়েছে", en: "✅ Settings saved" },
+  saveSettingsBtn: { bn: "সেটিংস সংরক্ষণ করুন", en: "Save settings" },
+  passcodeEnvHint: {
+    bn: "পাসকোডটি ADMIN_PASSCODE env variable দিয়ে সেট করা আছে — বদলাতে হলে Vercel-এর Environment Variables থেকে বদলান।",
+    en: "The passcode is set through the ADMIN_PASSCODE environment variable — change it from Vercel's Environment Variables.",
+  },
+  chatAiLabel: { bn: "AI চ্যাট সহকারী", en: "AI chat assistant" },
+  chatAiHint: {
+    bn: "বন্ধ থাকলে ভিজিটরের বার্তায় AI উত্তর দেবে না — সব বার্তা অ্যাডমিন ইনবক্সে অপেক্ষা করবে।",
+    en: "When off, the AI won't answer visitors — every message will wait in the admin inbox.",
+  },
+  deployTitle: { bn: "🚀 লাইভ ওয়েবসাইট", en: "🚀 Live website" },
+  deployBody: {
+    bn: "Vercel প্রজেক্টের নাম barakatutors — লাইভ ঠিকানা barakatutors.vercel.app। ডাটাবেস hosted (Turso), অ্যাডমিন পাসকোড ADMIN_PASSCODE env variable-এ থাকে, কোডে নয়।",
+    en: "The Vercel project name is barakatutors — live at barakatutors.vercel.app. The database is hosted (Turso) and the admin passcode lives in the ADMIN_PASSCODE env variable, not in code.",
+  },
+  liveSiteLink: { bn: "barakatutors.vercel.app খুলুন ↗", en: "Open barakatutors.vercel.app ↗" },
+
+  /* live chat widget */
+  chatOpenAria: { bn: "চ্যাট খুলুন", en: "Open chat" },
+  chatTitle: { bn: "💬 বারাকা সহকারী", en: "💬 Baraka Assistant" },
+  chatSubtitleAi: { bn: "AI সহকারী উত্তর দিচ্ছে", en: "The AI assistant is replying" },
+  chatSubtitleAdmin: { bn: "অ্যাডমিন এই চ্যাটটি দেখছেন", en: "The admin is handling this chat" },
+  chatSubtitleOff: {
+    bn: "বার্তা পাঠান — অ্যাডমিন রিপ্লাই করবেন",
+    en: "Send a message — the admin will reply",
+  },
+  chatNamePh: { bn: "আপনার নাম (ঐচ্ছিক)", en: "Your name (optional)" },
+  chatStartBtn: { bn: "চ্যাট শুরু করুন", en: "Start chat" },
+  chatInputPh: { bn: "বার্তা লিখুন…", en: "Write a message…" },
+  chatSendAria: { bn: "বার্তা পাঠান", en: "Send message" },
+  chatSenderAi: { bn: "সহকারী", en: "Assistant" },
+  chatSenderAdmin: { bn: "অ্যাডমিন", en: "Admin" },
+  chatSenderYou: { bn: "আপনি", en: "You" },
+  chatWaitingAdmin: {
+    bn: "⏳ অ্যাডমিনের রিপ্লাইয়ের অপেক্ষায়…",
+    en: "⏳ Waiting for the admin to reply…",
+  },
+  chatEscalated: {
+    bn: "📌 এই চ্যাটটি অ্যাডমিনের কাছে পাঠানো হয়েছে",
+    en: "📌 This chat has been passed to the admin",
+  },
+  chatStartFail: { bn: "চ্যাট শুরু করা যায়নি — আবার চেষ্টা করুন", en: "Could not start the chat — please try again" },
+  chatSendFail: { bn: "বার্তা পাঠানো যায়নি", en: "Could not send the message" },
+
+  /* admin chat inbox */
+  tabChats: { bn: "💬 চ্যাট", en: "💬 Chats" },
+  tabChatsSuffix: { bn: " ({n}টি অ্যাডমিনের জন্য)", en: " ({n} need admin)" },
+  noChatsTitle: { bn: "কোনো চ্যাট নেই", en: "No chats yet" },
+  noChatsBody: {
+    bn: "ভিজিটররা সাইটের চ্যাট বাটন থেকে বার্তা পাঠালেই তা এখানে দেখা যাবে।",
+    en: "When visitors send a message from the site's chat button, it will appear here.",
+  },
+  chatModeAi: { bn: "🤖 AI উত্তর দিচ্ছে", en: "🤖 AI is replying" },
+  chatModeAdmin: { bn: "🧑 অ্যাডমিন নিয়েছেন", en: "🧑 Admin has taken over" },
+  chatNeedsAdmin: { bn: "📌 অ্যাডমিনের জন্য", en: "📌 Needs admin" },
+  chatVisitorAnon: { bn: "নামহীন ভিজিটর", en: "Unnamed visitor" },
+  takeoverBtn: { bn: "নিজে নিন (AI থামবে)", en: "Take over (AI pauses)" },
+  handBackBtn: { bn: "AI-কে ফিরিয়ে দিন", en: "Hand back to AI" },
+  chatReplyPh: { bn: "অ্যাডমিন হিসেবে রিপ্লাই লিখুন…", en: "Write a reply as admin…" },
+  chatReplyBtn: { bn: "রিপ্লাই পাঠান", en: "Send reply" },
+  chatBackBtn: { bn: "← সব চ্যাট", en: "← All chats" },
+  chatAiToggleLabel: { bn: "AI উত্তর", en: "AI replies" },
+} as const;
+
+export type StringKey = keyof typeof S;
+
+export function translate(
+  lang: Lang,
+  key: StringKey,
+  vars?: Record<string, string | number>,
+): string {
+  let text: string = S[key][lang];
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      text = text.split(`{${name}}`).join(String(value));
+    }
+  }
+  return text;
+}
+
+interface LangCtx {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (key: StringKey, vars?: Record<string, string | number>) => string;
+}
+
+const Ctx = createContext<LangCtx>({
+  lang: "bn",
+  setLang: () => undefined,
+  t: (key, vars) => translate("bn", key, vars),
+});
+
+const STORAGE_KEY = "baraka-lang";
+
+export function LangProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "bn";
+    } catch {
+      return "bn";
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.lang = lang === "bn" ? "bn" : "en";
+    document.title =
+      lang === "bn" ? "Baraka Tutors — বারাকা টিউটরস, রংপুর" : "Baraka Tutors — Rangpur";
+  }, [lang]);
+
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try {
+      localStorage.setItem(STORAGE_KEY, l);
+    } catch {
+      /* storage unavailable — language just won't persist */
+    }
+  };
+
+  const value: LangCtx = {
+    lang,
+    setLang,
+    t: (key, vars) => translate(lang, key, vars),
+  };
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useLang(): LangCtx {
+  return useContext(Ctx);
+}
