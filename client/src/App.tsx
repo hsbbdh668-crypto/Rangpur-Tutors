@@ -196,7 +196,7 @@ function PostCard({
   const num = (n: number | string) => fmtNum(n, lang);
   const isGuardian = post.kind === "guardian";
   return (
-    <article className="flex flex-col rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(14,115,181,0.06)]">
+    <article className="flex flex-col rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(30,140,200,0.06)]">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip tone={isGuardian ? "amber" : "green"}>
@@ -2510,7 +2510,7 @@ function ChatWidget() {
         aria-label={t("chatOpenAria")}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-24 right-3 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--teal)] text-2xl shadow-[0_8px_24px_rgba(14,115,181,0.45)] ring-2 ring-white sm:bottom-6 sm:right-6"
+        className="fixed bottom-24 right-3 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--teal)] text-2xl shadow-[0_8px_24px_rgba(30,140,200,0.45)] ring-2 ring-white sm:bottom-6 sm:right-6"
       >
         {open ? "✕" : "💬"}
       </button>
@@ -2518,7 +2518,7 @@ function ChatWidget() {
       {open ? (
         <section
           aria-label={t("chatTitle")}
-          className="fixed inset-x-3 bottom-40 z-50 flex h-[min(540px,62vh)] flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_50px_rgba(10,90,140,0.35)] sm:inset-x-auto sm:bottom-24 sm:right-6 sm:h-[540px] sm:w-[380px]"
+          className="fixed inset-x-3 bottom-40 z-50 flex h-[min(540px,62vh)] flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_50px_rgba(30,140,200,0.35)] sm:inset-x-auto sm:bottom-24 sm:right-6 sm:h-[540px] sm:w-[380px]"
         >
           <header className="shrink-0 bg-[var(--header-bg)] px-4 py-3">
             <p className="text-base font-bold text-white">{t("chatTitle")}</p>
@@ -2846,6 +2846,22 @@ export function App() {
     { v: "admin", label: t("navAdmin"), icon: "🛠️" },
   ];
 
+  // Separate admin area: /admin renders ONLY the admin panel — no public
+  // header, board, post form, footer or chat widget. The passcode flow is
+  // unchanged (AdminPanel asks for it first, same as the in-app admin tab).
+  const isAdminRoute =
+    window.location.pathname === "/admin" ||
+    window.location.pathname.startsWith("/admin/");
+  if (isAdminRoute) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] pb-24 text-[var(--text)]">
+        <main className="mx-auto max-w-4xl px-4 pt-6">
+          <AdminPanel />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--bg)] pb-24 text-[var(--text)]">
       <SafeAreaTopScrim backgroundColor="var(--header-bg)" />
@@ -2856,7 +2872,7 @@ export function App() {
       <header
         className={`sticky z-40 pt-safe transition-all duration-300 ${
           scrolled
-            ? "top-3 mx-3 rounded-3xl border border-white/25 bg-[var(--header-bg)]/80 px-4 pb-3 shadow-[0_10px_30px_rgba(10,90,140,0.35)] backdrop-blur-xl sm:mx-4"
+            ? "top-3 mx-3 rounded-3xl border border-white/25 bg-[var(--header-bg)]/80 px-4 pb-3 shadow-[0_10px_30px_rgba(34,34,34,0.35)] backdrop-blur-xl sm:mx-4"
             : "top-0 border-b-4 border-[var(--teal-bright)] bg-[var(--header-bg)] px-4 pb-5"
         }`}
       >

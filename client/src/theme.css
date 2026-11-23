@@ -31,24 +31,25 @@ html[lang="bn"] {
 
 :root {
   color-scheme: light;
-  /* Baraka Tutors brand — Caretutors blue theme (#0E73B5), chosen by the
-     user from the researched tutor-site themes. Light mode only. */
-  --bg: #f7fafc;
+  /* Baraka Tutors brand — Tutor.com theme (#8), chosen by the user:
+     charcoal #222222 header/hero, blue #1E8CC8 buttons, yellow #FFD400
+     accent. Light mode only. */
+  --bg: #f7f8fa;
   --surface: #ffffff;
-  --surface-2: #edf4f9;
-  --text: #111827;
-  --dim: #5b6b7a;
-  --border: #dce7f0;
-  --accent: #0e73b5;
-  --accent-strong: #0a5a8c;
-  --accent-soft: #e3f2fb;
-  --header-bg: #0e73b5;
-  --teal: #0e73b5;
-  --teal-strong: #0b5c8a;
-  --teal-bright: #2e9bd6;
-  --teal-soft: #e3f2fb;
-  --amber: #d97706;
-  --amber-soft: #fef3c7;
+  --surface-2: #f1f3f5;
+  --text: #1a1a1a;
+  --dim: #5b6670;
+  --border: #e0e4e8;
+  --accent: #1e8cc8;
+  --accent-strong: #157aad;
+  --accent-soft: #e3f2fa;
+  --header-bg: #222222;
+  --teal: #1e8cc8;
+  --teal-strong: #157aad;
+  --teal-bright: #35a5dc;
+  --teal-soft: #e3f2fa;
+  --amber: #e8a800;
+  --amber-soft: #fff8d6;
   --danger: #b91c1c;
   --danger-soft: #fee2e2;
   --radius: 14px;
