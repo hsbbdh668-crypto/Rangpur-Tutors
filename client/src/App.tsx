@@ -2831,6 +2831,14 @@ export function App() {
     },
   });
 
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const navItems: { v: Tab; label: string; icon: string }[] = [
     { v: "board", label: t("navBoard"), icon: "📋" },
     { v: "post", label: t("navPost"), icon: "➕" },
@@ -2842,8 +2850,16 @@ export function App() {
     <div className="min-h-screen bg-[var(--bg)] pb-24 text-[var(--text)]">
       <SafeAreaTopScrim backgroundColor="var(--header-bg)" />
 
-      {/* Header band — deep purple from logo #4, with teal swoosh accent */}
-      <header className="border-b-4 border-[var(--teal-bright)] bg-[var(--header-bg)] px-4 pb-5 pt-safe">
+      {/* Header band — deep purple from logo #4, with teal swoosh accent.
+          At the top: full-width solid bar. Once scrolled: floating frosted
+          rounded pill that stays stuck to the top. */}
+      <header
+        className={`sticky z-40 pt-safe transition-all duration-300 ${
+          scrolled
+            ? "top-3 mx-3 rounded-3xl border border-white/25 bg-[var(--header-bg)]/80 px-4 pb-3 shadow-[0_10px_30px_rgba(20,10,40,0.35)] backdrop-blur-xl sm:mx-4"
+            : "top-0 border-b-4 border-[var(--teal-bright)] bg-[var(--header-bg)] px-4 pb-5"
+        }`}
+      >
         <div className="mx-auto max-w-4xl pt-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -2884,7 +2900,13 @@ export function App() {
               </button>
             </div>
           </div>
-          <p className="mt-3 text-sm text-white/85">{t("tagline")}</p>
+          <p
+            className={`overflow-hidden text-sm text-white/85 transition-all duration-300 ${
+              scrolled ? "max-h-0 opacity-0" : "mt-3 max-h-10 opacity-100"
+            }`}
+          >
+            {t("tagline")}
+          </p>
           <div className="mt-3 hidden flex-wrap gap-2 sm:flex" role="tablist" aria-label={t("mainMenu")}>
             {navItems.map((n) => (
               <button
