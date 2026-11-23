@@ -24,6 +24,38 @@ type Post,
 } from "./lib";
 import { useLang } from "./i18n";
 import barakaLogo from "./assets/baraka-logo.webp";
+import {
+  IconAlert,
+  IconArrowLeft,
+  IconBoard,
+  IconBot,
+  IconBookmark,
+  IconChat,
+  IconCheck,
+  IconCheckCircle,
+  IconClock,
+  IconExternal,
+  IconGradCap,
+  IconHeart,
+  IconHome,
+  IconLock,
+  IconMail,
+  IconMegaphone,
+  IconPen,
+  IconPhone,
+  IconPin,
+  IconPlusCircle,
+  IconRocket,
+  IconSend,
+  IconSettings,
+  IconShieldCheck,
+  IconSliders,
+  IconStar,
+  IconTrash,
+  IconUser,
+  IconWrench,
+  IconX,
+} from "./icons";
 
 const FIELDS = actionFields<typeof Actions>();
 
@@ -200,10 +232,18 @@ function PostCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip tone={isGuardian ? "amber" : "green"}>
-            {isGuardian ? t("chipGuardian") : t("chipTutor")}
+            {isGuardian ? (
+              <>
+                <IconHome className="h-3.5 w-3.5" /> {t("chipGuardian")}
+              </>
+            ) : (
+              <>
+                <IconGradCap className="h-3.5 w-3.5" /> {t("chipTutor")}
+              </>
+            )}
           </Chip>
-          {post.featured ? <Chip tone="amber">{t("chipFeatured")}</Chip> : null}
-          {post.verified ? <Chip tone="green">{t("chipVerifiedTutor")}</Chip> : null}
+          {post.featured ? <Chip tone="amber"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
+          {post.verified ? <Chip tone="green"><IconShieldCheck className="h-3.5 w-3.5" /> {t("chipVerifiedTutor")}</Chip> : null}
           <GenderChip post={post} />
         </div>
         {preview ? null : (
@@ -212,9 +252,13 @@ function PostCard({
             aria-label={isFavorite ? t("favRemoveAria") : t("favAddAria")}
             aria-pressed={isFavorite}
             onClick={() => onToggleFavorite(post)}
-            className="shrink-0 rounded-full px-2 text-xl leading-none"
+            className="shrink-0 rounded-full p-1.5 leading-none"
           >
-            {isFavorite ? "❤️" : "🤍"}
+            {isFavorite ? (
+              <IconHeart filled className="h-6 w-6 text-[var(--danger)]" />
+            ) : (
+              <IconHeart className="h-6 w-6 text-[var(--dim)]" />
+            )}
           </button>
         )}
       </div>
@@ -225,7 +269,7 @@ function PostCard({
 
       <p className="mt-1 text-sm text-[var(--dim)]">
         {post.authorName}
-        {post.institution ? ` · ${post.institution}` : ""} · 📍 {areaLabel(post.area, lang)} · {timeAgo(post.createdAt, lang)}
+        {post.institution ? ` · ${post.institution}` : ""} · <IconPin className="inline h-3.5 w-3.5 align-[-2px]" /> {areaLabel(post.area, lang)} · {timeAgo(post.createdAt, lang)}
       </p>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -255,7 +299,7 @@ function PostCard({
               aria-label={t("callAria", { name: post.authorName })}
               className="rounded-full border border-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-[var(--accent-strong)]"
             >
-              {t("callBtn")}
+              <IconPhone className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("callBtn")}
             </a>
             <button
               type="button"
@@ -384,7 +428,7 @@ function Board({
     <div>
       {configQuery.data?.notice ? (
         <div className="mb-4 rounded-[var(--radius)] bg-[var(--amber-soft)] px-4 py-3 text-sm font-medium text-[var(--text)]">
-          📢 {configQuery.data.notice}
+          <IconMegaphone className="mr-1 inline h-4 w-4 align-[-2px]" /> {configQuery.data.notice}
         </div>
       ) : null}
 
@@ -442,7 +486,7 @@ function Board({
             onClick={() => setShowFilters((v) => !v)}
             className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--text)]"
           >
-            {t("filtersBtn")}{activeFilterCount ? ` (${num(activeFilterCount)})` : ""} {showFilters ? "▲" : "▼"}
+            <IconSliders className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("filtersBtn")}{activeFilterCount ? ` (${num(activeFilterCount)})` : ""} {showFilters ? "▲" : "▼"}
           </button>
         </div>
 
@@ -605,7 +649,7 @@ function Board({
                   }}
                   className="shrink-0 rounded-full bg-[var(--surface-2)] px-4 py-2 text-sm font-semibold text-[var(--text)]"
                 >
-                  {t("saveSearchBtn")}
+                  <IconBookmark className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("saveSearchBtn")}
                 </button>
               </div>
             </div>
@@ -786,19 +830,27 @@ function PostDetail({
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap gap-1.5">
             <Chip tone={isGuardian ? "amber" : "green"}>
-              {isGuardian ? t("chipGuardian") : t("chipTutor")}
+              {isGuardian ? (
+                <>
+                  <IconHome className="h-3.5 w-3.5" /> {t("chipGuardian")}
+                </>
+              ) : (
+                <>
+                  <IconGradCap className="h-3.5 w-3.5" /> {t("chipTutor")}
+                </>
+              )}
             </Chip>
-            {post.featured ? <Chip tone="amber">{t("chipFeatured")}</Chip> : null}
-            {post.verified ? <Chip tone="green">{t("chipVerifiedTutor")}</Chip> : null}
+            {post.featured ? <Chip tone="amber"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
+            {post.verified ? <Chip tone="green"><IconShieldCheck className="h-3.5 w-3.5" /> {t("chipVerifiedTutor")}</Chip> : null}
             <GenderChip post={post} />
           </div>
           <button
             type="button"
             aria-label={t("closeAria")}
             onClick={onClose}
-            className="rounded-full bg-[var(--surface-2)] px-3 text-lg leading-none"
+            className="inline-flex items-center justify-center rounded-full bg-[var(--surface-2)] p-2"
           >
-            ✕
+            <IconX className="h-5 w-5" />
           </button>
         </div>
 
@@ -841,7 +893,7 @@ function PostDetail({
             href={`tel:${post.phone.replace(/\s/g, "")}`}
             className="flex-1 rounded-full bg-[var(--accent)] px-4 py-2.5 text-center text-base font-semibold text-white"
           >
-            {t("callNow", { phone: post.phone })}
+            <IconPhone className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("callNow", { phone: post.phone })}
           </a>
           <button
             type="button"
@@ -849,7 +901,15 @@ function PostDetail({
             onClick={() => onToggleFavorite(post)}
             className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-base font-semibold text-[var(--text)]"
           >
-            {isFavorite ? t("favInBtn") : t("favAddBtn")}
+            {isFavorite ? (
+              <>
+                <IconHeart filled className="mr-1 inline h-4 w-4 align-[-2px] text-[var(--danger)]" /> {t("favInBtn")}
+              </>
+            ) : (
+              <>
+                <IconHeart className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("favAddBtn")}
+              </>
+            )}
           </button>
         </div>
 
@@ -860,7 +920,7 @@ function PostDetail({
           </h3>
           {applyDone ? (
             <p className="mt-2 rounded-[var(--radius)] bg-[var(--accent-soft)] px-3 py-2.5 text-sm font-medium text-[var(--accent-strong)]">
-              {t("applyDoneMsg")}
+              <IconCheckCircle className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("applyDoneMsg")}
             </p>
           ) : (
             <form
@@ -918,7 +978,7 @@ function PostDetail({
         <div className="mt-4 text-center">
           {reportDone ? (
             <p className="text-sm font-medium text-[var(--accent-strong)]">
-              {t("reportDoneMsg")}
+              <IconCheckCircle className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("reportDoneMsg")}
             </p>
           ) : showReport ? (
             <form
@@ -984,7 +1044,7 @@ function PostDetail({
               onClick={() => setShowReport(true)}
               className="px-3 py-2 text-sm font-medium text-[var(--dim)] underline"
             >
-              {t("reportLink")}
+              <IconAlert className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("reportLink")}
             </button>
           )}
         </div>
@@ -1093,7 +1153,7 @@ function PostForm({ onDone }: { onDone: () => void }) {
   if (doneStatus) {
     return (
       <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-5 py-10 text-center">
-        <p className="text-4xl">✅</p>
+        <p className="flex justify-center"><IconCheckCircle className="h-10 w-10 text-[var(--teal-strong)]" /></p>
         <h2 className="mt-3 text-xl font-bold text-[var(--text)]">{t("postDoneTitle")}</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-[var(--dim)]">
           {doneStatus === "approved" ? t("postDoneApproved") : t("postDonePending")}
@@ -1152,7 +1212,7 @@ function PostForm({ onDone }: { onDone: () => void }) {
                 : "border-[var(--border)] text-[var(--dim)]"
             }`}
           >
-            {o.label}
+            {o.v === "guardian" ? <IconHome className="mr-1 inline h-4 w-4 align-[-2px]" /> : <IconGradCap className="mr-1 inline h-4 w-4 align-[-2px]" />} {o.label}
           </button>
         ))}
       </div>
@@ -1393,7 +1453,7 @@ function PostForm({ onDone }: { onDone: () => void }) {
         disabled={mutation.isPending}
         className="mt-5 w-full rounded-full bg-[var(--accent)] px-5 py-3 text-base font-bold text-white disabled:opacity-60 sm:w-auto"
       >
-        {mutation.isPending ? t("submitting") : t("submitPostBtn")}
+        {mutation.isPending ? t("submitting") : (<><IconPen className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("submitPostBtn")}</>)}
       </button>
     </form>
 
@@ -1580,7 +1640,7 @@ function AdminPanel() {
   if (!authed) {
     return (
       <div className="mx-auto max-w-md rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h2 className="text-xl font-bold text-[var(--text)]">{t("adminLoginTitle")}</h2>
+        <h2 className="text-xl font-bold text-[var(--text)]"><IconLock className="mr-2 inline h-5 w-5 align-[-3px]" /> {t("adminLoginTitle")}</h2>
         <p className="mt-2 text-sm text-[var(--dim)]">{t("adminLoginBody")}</p>
         <form
           className="mt-4 grid gap-3"
@@ -1619,27 +1679,31 @@ function AdminPanel() {
   const sectionTabs = [
     {
       v: "posts" as const,
+      icon: <IconBoard className="mr-1 inline h-4 w-4 align-[-2px]" />,
       label: t("tabPosts") + (stats?.pending ? t("tabPostsPendingSuffix", { n: num(stats.pending) }) : ""),
     },
     {
       v: "applications" as const,
+      icon: <IconMail className="mr-1 inline h-4 w-4 align-[-2px]" />,
       label: t("tabApplications") + (stats?.newApplications ? t("tabAppsNewSuffix", { n: num(stats.newApplications) }) : ""),
     },
     {
       v: "reports" as const,
+      icon: <IconAlert className="mr-1 inline h-4 w-4 align-[-2px]" />,
       label: t("tabReports") + (stats?.openReports ? t("tabReportsSuffix", { n: num(stats.openReports) }) : ""),
     },
     {
       v: "chats" as const,
+      icon: <IconChat className="mr-1 inline h-4 w-4 align-[-2px]" />,
       label: t("tabChats") + (chatsNeedingAdmin ? t("tabChatsSuffix", { n: num(chatsNeedingAdmin) }) : ""),
     },
-    { v: "settings" as const, label: t("tabSettings") },
+    { v: "settings" as const, icon: <IconSettings className="mr-1 inline h-4 w-4 align-[-2px]" />, label: t("tabSettings") },
   ];
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xl font-bold text-[var(--text)]">{t("adminPanelTitle")}</h2>
+        <h2 className="text-xl font-bold text-[var(--text)]"><IconWrench className="mr-2 inline h-5 w-5 align-[-3px]" /> {t("adminPanelTitle")}</h2>
         <button
           type="button"
           onClick={() => {
@@ -1679,7 +1743,7 @@ function AdminPanel() {
               section === t.v ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-2)] text-[var(--dim)]"
             }`}
           >
-            {t.label}
+            {t.icon} {t.label}
           </button>
         ))}
       </div>
@@ -1738,15 +1802,15 @@ function AdminPanel() {
                             ? t("statusRejected")
                             : t("statusClosed")}
                     </Chip>
-                    {p.featured ? <Chip tone="amber">{t("chipFeatured")}</Chip> : null}
-                    {p.verified ? <Chip tone="green">{t("chipVerifiedShort")}</Chip> : null}
+                    {p.featured ? <Chip tone="amber"><IconStar filled className="h-3.5 w-3.5" /> {t("chipFeatured")}</Chip> : null}
+                    {p.verified ? <Chip tone="green"><IconShieldCheck className="h-3.5 w-3.5" /> {t("chipVerifiedShort")}</Chip> : null}
                     <span className="ml-auto text-xs text-[var(--dim)]">
                       {fullDate(p.createdAt, lang)} · {t("applicationsCount", { n: num(p.applicationCount) })}
                     </span>
                   </div>
                   <h3 className="mt-2 font-semibold text-[var(--text)]">{p.title}</h3>
                   <p className="mt-0.5 text-sm text-[var(--dim)]">
-                    {p.authorName} · {p.phone} · 📍 {areaLabel(p.area, lang)} · {salaryText(p, lang)}
+                    {p.authorName} · {p.phone} · <IconPin className="inline h-3.5 w-3.5 align-[-2px]" /> {areaLabel(p.area, lang)} · {salaryText(p, lang)}
                   </p>
                   <p className="mt-0.5 text-sm text-[var(--dim)]">
                     {p.subjects.map((s) => subjectLabel(s, lang)).join(", ")} —{" "}
@@ -1762,7 +1826,7 @@ function AdminPanel() {
                         onClick={() => statusMutation.mutate({ id: p.id, status: "approved" })}
                         className="rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-sm font-semibold text-white"
                       >
-                        {t("approveBtn")}
+                        <IconCheck className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("approveBtn")}
                       </button>
                     ) : null}
                     {p.status === "pending" ? (
@@ -1798,7 +1862,7 @@ function AdminPanel() {
                       onClick={() => flagsMutation.mutate({ id: p.id, featured: !p.featured })}
                       className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-sm font-semibold text-[var(--text)]"
                     >
-                      {p.featured ? t("featuredRemoveBtn") : t("featuredAddBtn")}
+                      {p.featured ? (<><IconStar filled className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("featuredRemoveBtn")}</>) : (<><IconStar filled className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("featuredAddBtn")}</>)}
                     </button>
                     {p.kind === "tutor" ? (
                       <button
@@ -1807,7 +1871,7 @@ function AdminPanel() {
                         onClick={() => flagsMutation.mutate({ id: p.id, verified: !p.verified })}
                         className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-sm font-semibold text-[var(--text)]"
                       >
-                        {p.verified ? t("verifyRemoveBtn") : t("verifyTutorBtn")}
+                        {p.verified ? (<><IconShieldCheck className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("verifyRemoveBtn")}</>) : (<><IconShieldCheck className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("verifyTutorBtn")}</>)}
                       </button>
                     ) : null}
                     <button
@@ -1815,7 +1879,7 @@ function AdminPanel() {
                       onClick={() => setEditing(p)}
                       className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-sm font-semibold text-[var(--text)]"
                     >
-                      {t("editBtn")}
+                      <IconPen className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("editBtn")}
                     </button>
                     {confirmDeleteId === p.id ? (
                       <>
@@ -1840,7 +1904,7 @@ function AdminPanel() {
                         onClick={() => setConfirmDeleteId(p.id)}
                         className="rounded-full px-3.5 py-1.5 text-sm font-semibold text-[var(--danger)]"
                       >
-                        {t("deleteBtn")}
+                        <IconTrash className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("deleteBtn")}
                       </button>
                     )}
                   </div>
@@ -2100,9 +2164,9 @@ function AdminEditPost({
         }}
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text)]">{t("editPostTitle")}</h3>
-          <button type="button" aria-label={t("closeAria")} onClick={onClose} className="rounded-full bg-[var(--surface-2)] px-3">
-            ✕
+          <h3 className="text-lg font-bold text-[var(--text)]"><IconPen className="mr-2 inline h-5 w-5 align-[-3px]" /> {t("editPostTitle")}</h3>
+          <button type="button" aria-label={t("closeAria")} onClick={onClose} className="inline-flex items-center justify-center rounded-full bg-[var(--surface-2)] p-2">
+            <IconX className="h-5 w-5" />
           </button>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -2339,7 +2403,7 @@ function AdminSettings({
       </label>
       {passcodeFromEnv ? (
         <p className="rounded-[var(--radius)] bg-[var(--accent-soft)] px-3 py-2.5 text-sm text-[var(--accent-strong)]">
-          🔐 {t("passcodeEnvHint")}
+          <IconLock className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("passcodeEnvHint")}
         </p>
       ) : (
         <Field label={t("newPasscodeLabel")} hint={t("newPasscodeHint")}>
@@ -2355,7 +2419,7 @@ function AdminSettings({
         </Field>
       )}
       <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-        <p className="text-sm font-bold text-[var(--text)]">{t("deployTitle")}</p>
+        <p className="text-sm font-bold text-[var(--text)]"><IconRocket className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("deployTitle")}</p>
         <p className="mt-1 text-sm text-[var(--dim)]">{t("deployBody")}</p>
         <a
           href="https://barakatutors.vercel.app"
@@ -2363,11 +2427,11 @@ function AdminSettings({
           rel="noreferrer"
           className="mt-2 inline-block text-sm font-semibold text-[var(--accent-strong)] underline"
         >
-          {t("liveSiteLink")}
+          <IconExternal className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("liveSiteLink")}
         </a>
       </div>
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-      {msg ? <p className="text-sm font-medium text-[var(--accent-strong)]">{msg}</p> : null}
+      {msg ? <p className="text-sm font-medium text-[var(--accent-strong)]"><IconCheckCircle className="mr-1 inline h-4 w-4 align-[-2px]" /> {msg}</p> : null}
       <button
         type="submit"
         disabled={mutation.isPending}
@@ -2416,8 +2480,18 @@ function ChatBubbles({
                     ? t("chatSenderYou")
                     : t("chatSenderYou")
                   : isAi
-                    ? `🤖 ${t("chatSenderAi")}`
-                    : `🧑 ${t("chatSenderAdmin")}`}
+                    ? (
+                      <>
+                        <IconBot className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+                        {t("chatSenderAi")}
+                      </>
+                    )
+                    : (
+                      <>
+                        <IconUser className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+                        {t("chatSenderAdmin")}
+                      </>
+                    )}
               </p>
               <p className="whitespace-pre-wrap">{m.body}</p>
             </div>
@@ -2512,7 +2586,7 @@ function ChatWidget() {
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-24 right-3 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--teal)] text-2xl shadow-[0_8px_24px_rgba(30,140,200,0.45)] ring-2 ring-white sm:bottom-6 sm:right-6"
       >
-        {open ? "✕" : "💬"}
+        {open ? <IconX className="h-6 w-6" /> : <IconChat className="h-6 w-6" />}
       </button>
 
       {open ? (
@@ -2521,13 +2595,13 @@ function ChatWidget() {
           className="fixed inset-x-3 bottom-40 z-50 flex h-[min(540px,62vh)] flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_50px_rgba(30,140,200,0.35)] sm:inset-x-auto sm:bottom-24 sm:right-6 sm:h-[540px] sm:w-[380px]"
         >
           <header className="shrink-0 bg-[var(--header-bg)] px-4 py-3">
-            <p className="text-base font-bold text-white">{t("chatTitle")}</p>
+            <p className="text-base font-bold text-white"><IconChat className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("chatTitle")}</p>
             <p className="text-xs text-white/75">{subtitle}</p>
           </header>
 
           {conversationId == null ? (
             <div className="flex flex-1 flex-col justify-center gap-3 p-5">
-              <p className="text-center text-4xl">💬</p>
+              <p className="flex justify-center"><IconChat className="h-10 w-10 text-[var(--dim)]" /></p>
               <p className="text-center text-sm text-[var(--dim)]">{t("chatSubtitleAi")}</p>
               <label className="sr-only" htmlFor="chat-name">
                 {t("chatNamePh")}
@@ -2559,12 +2633,12 @@ function ChatWidget() {
                 <ChatBubbles messages={localMessages} viewer="visitor" />
                 {needsAdmin ? (
                   <p className="mt-3 text-center text-xs font-semibold text-[var(--amber)]">
-                    {t("chatEscalated")}
+                    <IconPin className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatEscalated")}
                   </p>
                 ) : null}
                 {waiting ? (
                   <p className="mt-3 text-center text-xs font-medium text-[var(--dim)]">
-                    {t("chatWaitingAdmin")}
+                    <IconClock className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatWaitingAdmin")}
                   </p>
                 ) : null}
               </div>
@@ -2595,7 +2669,7 @@ function ChatWidget() {
                   disabled={sendMutation.isPending || !draft.trim()}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-lg text-white disabled:opacity-50"
                 >
-                  ➤
+                  <IconSend className="h-5 w-5" />
                 </button>
               </form>
               {error ? (
@@ -2680,7 +2754,7 @@ function AdminChats({ passcode }: { passcode: string }) {
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
         <span className="text-sm font-bold text-[var(--text)]">
-          🤖 {t("chatAiToggleLabel")}
+          <IconBot className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("chatAiToggleLabel")}
         </span>
         <label className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
           <input
@@ -2691,7 +2765,7 @@ function AdminChats({ passcode }: { passcode: string }) {
             disabled={aiToggleMutation.isPending}
             onChange={(e) => aiToggleMutation.mutate(e.target.checked)}
           />
-          {(configQuery.data?.chatAiEnabled ?? true) ? t("chatModeAi") : t("chatSubtitleOff")}
+          {(configQuery.data?.chatAiEnabled ?? true) ? (<><IconBot className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("chatModeAi")}</>) : t("chatSubtitleOff")}
         </label>
       </div>
       {error ? <p className="mb-3 text-sm font-medium text-[var(--danger)]">{error}</p> : null}
@@ -2724,9 +2798,9 @@ function AdminChats({ passcode }: { passcode: string }) {
                 <p className="mt-1 line-clamp-2 text-sm text-[var(--dim)]">{c.lastMessage}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <Chip tone={c.mode === "admin" ? "green" : "soft"}>
-                    {c.mode === "admin" ? t("chatModeAdmin") : t("chatModeAi")}
+                    {c.mode === "admin" ? (<><IconUser className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatModeAdmin")}</>) : (<><IconBot className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatModeAi")}</>)}
                   </Chip>
-                  {c.needsAdmin ? <Chip tone="amber">{t("chatNeedsAdmin")}</Chip> : null}
+                  {c.needsAdmin ? <Chip tone="amber"><IconPin className="h-3.5 w-3.5" /> {t("chatNeedsAdmin")}</Chip> : null}
                 </div>
               </button>
             ))}
@@ -2740,7 +2814,7 @@ function AdminChats({ passcode }: { passcode: string }) {
               onClick={() => setSelectedId(null)}
               className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-sm font-semibold text-[var(--text)]"
             >
-              {t("chatBackBtn")}
+              <IconArrowLeft className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("chatBackBtn")}
             </button>
             <div className="min-w-0">
               <p className="truncate font-bold text-[var(--text)]">
@@ -2748,8 +2822,8 @@ function AdminChats({ passcode }: { passcode: string }) {
                 {selected?.visitorPhone ? ` · ${selected.visitorPhone}` : ""}
               </p>
               <p className="text-xs text-[var(--dim)]">
-                {selected?.mode === "admin" ? t("chatModeAdmin") : t("chatModeAi")}
-                {selected?.needsAdmin ? ` · ${t("chatNeedsAdmin")}` : ""}
+                {selected?.mode === "admin" ? (<><IconUser className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatModeAdmin")}</>) : (<><IconBot className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("chatModeAi")}</>)}
+                {selected?.needsAdmin ? (<> · <IconPin className="mr-0.5 inline h-3 w-3 align-[-1px]" /> {t("chatNeedsAdmin")}</>) : null}
               </p>
             </div>
             {selected ? (
@@ -2839,11 +2913,11 @@ export function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const navItems: { v: Tab; label: string; icon: string }[] = [
-    { v: "board", label: t("navBoard"), icon: "📋" },
-    { v: "post", label: t("navPost"), icon: "➕" },
-    { v: "favorites", label: t("navFavorites"), icon: "❤️" },
-    { v: "admin", label: t("navAdmin"), icon: "🛠️" },
+  const navItems: { v: Tab; label: string; icon: ReactNode }[] = [
+    { v: "board", label: t("navBoard"), icon: <IconBoard className="h-5 w-5" /> },
+    { v: "post", label: t("navPost"), icon: <IconPlusCircle className="h-5 w-5" /> },
+    { v: "favorites", label: t("navFavorites"), icon: <IconHeart className="h-5 w-5" /> },
+    { v: "admin", label: t("navAdmin"), icon: <IconWrench className="h-5 w-5" /> },
   ];
 
   // Separate admin area: /admin renders ONLY the admin panel — no public
@@ -2872,7 +2946,7 @@ export function App() {
       <header
         className={`sticky z-40 pt-safe transition-all duration-300 ${
           scrolled
-            ? "top-3 mx-3 rounded-3xl border border-white/25 bg-[var(--header-bg)]/80 px-4 pb-3 shadow-[0_10px_30px_rgba(34,34,34,0.35)] backdrop-blur-xl sm:mx-4"
+            ? "top-3 mx-3 rounded-3xl border border-white/25 bg-[var(--header-bg)]/80 px-4 pb-3 shadow-[0_10px_30px_rgba(30,140,200,0.35)] backdrop-blur-xl sm:mx-4"
             : "top-0 border-b-4 border-[var(--teal-bright)] bg-[var(--header-bg)] px-4 pb-5"
         }`}
       >
@@ -2966,7 +3040,7 @@ export function App() {
               rel="noreferrer"
               className="font-semibold text-[var(--accent-strong)] underline"
             >
-              {t("liveSiteLink")}
+              <IconExternal className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> {t("liveSiteLink")}
             </a>
           </p>
         </footer>
@@ -2988,7 +3062,13 @@ export function App() {
                 tab === n.v ? "text-[var(--accent-strong)]" : "text-[var(--dim)]"
               }`}
             >
-              <span className="text-xl leading-none">{n.icon}</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center">
+                {n.v === "favorites" ? (
+                  <IconHeart filled={tab === n.v} className="h-5 w-5" />
+                ) : (
+                  n.icon
+                )}
+              </span>
               {n.label}
             </button>
           ))}
