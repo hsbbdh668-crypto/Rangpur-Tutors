@@ -338,8 +338,12 @@ export async function POST(req: Request): Promise<Response> {
       const tutorPhone = String(row.phone);
       const appRows = await db.execute({
         sql: "SELECT * FROM applications ORDER BY created_at DESC",
+        args: [],
       });
-      const postRows = await db.execute({ sql: "SELECT id, title, phone FROM posts" });
+      const postRows = await db.execute({
+        sql: "SELECT id, title, phone FROM posts",
+        args: [],
+      });
       const byId = new Map(
         postRows.rows.map((p) => [
           Number(p.id),

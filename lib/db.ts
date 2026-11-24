@@ -189,8 +189,15 @@ export function ensureSchema(): Promise<void> {
       // or the demo text in the admin panel never re-seeds them, and
       // real groups/text added later are never touched. Raw SQL only
       // here — getSetting/setSetting call ensureSchema (deadlock).
+      // NOTE: every object-form execute MUST pass `args` (even an empty
+      // array): @libsql/client's HTTP path calls Object.entries on
+      // stmt.args, and a missing args throws "Cannot convert undefined
+      // or null to object" against remote Turso — while the local file
+      // client silently tolerates it. That one omission 500'd every
+      // API route on the first deploy of this feature.
       const seeded = await db.execute({
         sql: "SELECT value FROM settings WHERE key = 'poster_demo_seeded' LIMIT 1",
+        args: [],
       });
       if (!seeded.rows[0]) {
         const count = await db.execute("SELECT COUNT(*) AS c FROM poster_groups");
@@ -216,6 +223,7 @@ export function ensureSchema(): Promise<void> {
         }
         const textRow = await db.execute({
           sql: "SELECT value FROM settings WHERE key = 'poster_post_text' LIMIT 1",
+          args: [],
         });
         if (!textRow.rows[0] || !String(textRow.rows[0].value ?? "").trim()) {
           await db.execute({
@@ -227,6 +235,7 @@ export function ensureSchema(): Promise<void> {
         }
         await db.execute({
           sql: "INSERT INTO settings (key, value) VALUES ('poster_demo_seeded', '1') ON CONFLICT(key) DO UPDATE SET value = '1'",
+          args: [],
         });
       }
     })();
