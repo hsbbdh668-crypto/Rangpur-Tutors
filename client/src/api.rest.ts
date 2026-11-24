@@ -240,7 +240,7 @@ export interface TutorMyApplications {
 /** localStorage key for the tutor session token (see api/tutors.ts). */
 export const TUTOR_TOKEN_KEY = "baraka_tutor_token";
 
-/** localStorage key for the poster session token (see api/posters.ts). */
+/** localStorage key for the poster session token (see api/poster.ts). */
 export const POSTER_TOKEN_KEY = "baraka_poster_token";
 
 /** One Facebook group on the /poster posting list. */
@@ -764,19 +764,21 @@ export const restApi = {
     });
   },
 
-  // ---------------- Poster accounts + task (POST /api/posters, /api/poster) ----------------
+  // ---------------- Poster accounts + task (POST /api/poster) ----------------
   // A poster signs up and CAN log in, but sees no task until an admin
   // approves the account — posterGet returns 403 while status is
   // 'pending'/'rejected', and the client shows "waiting for admin
   // approval". The token is sent as the `x-poster-token` header;
   // store it in localStorage under POSTER_TOKEN_KEY.
+  // (The whole poster surface lives in this one route: the Vercel
+  // Hobby plan allows at most 12 serverless functions per deployment.)
 
   posterSignup: async (args: {
     name: string;
     phone: string;
     password: string;
   }): Promise<{ poster: PosterProfile; token: string }> => {
-    return post<{ poster: PosterProfile; token: string }>("/api/posters", {
+    return post<{ poster: PosterProfile; token: string }>("/api/poster", {
       action: "signup",
       ...args,
     });
@@ -786,14 +788,14 @@ export const restApi = {
     phone: string;
     password: string;
   }): Promise<{ poster: PosterProfile; token: string }> => {
-    return post<{ poster: PosterProfile; token: string }>("/api/posters", {
+    return post<{ poster: PosterProfile; token: string }>("/api/poster", {
       action: "login",
       ...args,
     });
   },
 
   posterMe: async (args: { token: string }): Promise<{ poster: PosterProfile }> => {
-    return req<{ poster: PosterProfile }>("/api/posters", {
+    return req<{ poster: PosterProfile }>("/api/poster", {
       method: "POST",
       headers: { "x-poster-token": args.token },
       body: JSON.stringify({ action: "me" }),
@@ -817,11 +819,11 @@ export const restApi = {
     groupId: number;
   }): Promise<{ ok: boolean; groups: PosterGroup[]; doneCount: number; totalCount: number }> => {
     return req<{ ok: boolean; groups: PosterGroup[]; doneCount: number; totalCount: number }>(
-      "/api/poster/complete",
+      "/api/poster",
       {
         method: "POST",
         headers: { "x-poster-token": args.token },
-        body: JSON.stringify({ groupId: args.groupId }),
+        body: JSON.stringify({ action: "complete", groupId: args.groupId }),
       },
     );
   },
