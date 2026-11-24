@@ -1,9 +1,56 @@
 <!doctype html>
-<html lang="en">
+<html lang="bn">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="color-scheme" content="light dark" />
+    <!-- SEO (spec P0 #1–#3, #5): default language is Bangla, so the served
+         HTML carries lang="bn" and the Bangla title/description. The app
+         updates title/meta/canonical/OG at runtime per view + language
+         (client/src/seo.ts). -->
+    <title>রংপুরে হোম টিউটর ও টিউশন — Baraka Tutors | Home Tutor in Rangpur</title>
+    <meta
+      name="description"
+      content="রংপুরে যাচাইকৃত হোম টিউটর খুঁজুন — ধাপ, লালবাগ, মর্ডান মোড়সহ সব এলাকায় SSC/HSC, গণিত, ইংরেজি, পদার্থবিজ্ঞানের অভিজ্ঞ শিক্ষক/শিক্ষিকা।"
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://barakatutors.vercel.app/" />
+    <meta property="og:title" content="রংপুরে হোম টিউটর ও টিউশন — Baraka Tutors | Home Tutor in Rangpur" />
+    <meta
+      property="og:description"
+      content="রংপুরে যাচাইকৃত হোম টিউটর খুঁজুন — ধাপ, লালবাগ, মর্ডান মোড়সহ সব এলাকায় SSC/HSC, গণিত, ইংরেজি, পদার্থবিজ্ঞানের অভিজ্ঞ শিক্ষক/শিক্ষিকা।"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://barakatutors.vercel.app" />
+    <meta property="og:image" content="https://barakatutors.vercel.app/baraka-logo.webp" />
+    <meta property="og:site_name" content="Baraka Tutors" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="রংপুরে হোম টিউটর ও টিউশন — Baraka Tutors | Home Tutor in Rangpur" />
+    <meta
+      name="twitter:description"
+      content="রংপুরে যাচাইকৃত হোম টিউটর খুঁজুন — ধাপ, লালবাগ, মর্ডান মোড়সহ সব এলাকায় SSC/HSC, গণিত, ইংরেজি, পদার্থবিজ্ঞানের অভিজ্ঞ শিক্ষক/শিক্ষিকা।"
+    />
+    <meta name="twitter:image" content="https://barakatutors.vercel.app/baraka-logo.webp" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "Baraka Tutors",
+            "url": "https://barakatutors.vercel.app",
+            "logo": "https://barakatutors.vercel.app/baraka-logo.webp",
+            "description": "Find verified home tutors in Rangpur — experienced male and female tutors for SSC/HSC, Math, English and Physics in Dhap, Lalbagh, Modern Mor and every area of Rangpur."
+          },
+          {
+            "@type": "WebSite",
+            "name": "Baraka Tutors",
+            "url": "https://barakatutors.vercel.app",
+            "inLanguage": ["bn", "en"]
+          }
+        ]
+      }
+    </script>
     <!-- Anek Bangla (Bangla mode only — see theme.css html[lang="bn"]).
          Loaded here instead of a CSS @import so it starts earlier and
          works reliably on Vercel. Weights 400–800 cover body + headings. -->
@@ -23,7 +70,6 @@
            <link rel="icon" type="image/x-icon" href="/favicon.ico" />
            <link rel="apple-touch-icon" href="/favicon.png" /> -->
     <link rel="icon" href="data:," />
-    <title>Baraka Tutors — বারাকা টিউটরস, রংপুর</title>
     <script src="./src/main.tsx" type="module"></script>
   </head>
   <body>

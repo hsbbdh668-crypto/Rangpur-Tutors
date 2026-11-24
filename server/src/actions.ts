@@ -15,7 +15,6 @@
 // (see `api/_lib.ts`) backed by the hosted database in `DATABASE_URL`
 // (Turso / libSQL — the Drizzle schema in `server/src/schema.ts` is shared).
 
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { defineAction, z, type ActionsModule, type Ctx } from "@hatch/space-sdk";
 import { Privileged } from "@space/privileged";
 import { and, desc, eq } from "drizzle-orm";
@@ -36,6 +35,15 @@ async function envPasscode(ctx: Ctx): Promise<string> {
 }
 
 const ADMIN_PRIVILEGED = [Privileged.adminPasscodeFromEnv] as const;
+
+/** Tutor-account crypto runs in the privileged host handlers
+    (src/privileged.ts) — same scrypt parameters as before, so existing
+    password hashes keep verifying. */
+const CRYPTO_PRIVILEGED = [
+  Privileged.hashPassword,
+  Privileged.verifyPassword,
+  Privileged.randomToken,
+] as const;
 
 const kindEnum = z.enum(["guardian", "tutor"]);
 const modeEnum = z.enum(["home", "online", "both"]);
@@ -175,21 +183,27 @@ function toTutorProfile(row: TutorRow): z.infer<typeof tutorProfileShape> {
   };
 }
 
-/** scrypt password hashing (64-byte key, 16-byte random salt, hex-encoded). */
-function hashPassword(password: string): { hash: string; salt: string } {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return { hash, salt };
+/** scrypt password hashing via the privileged host handler
+    (64-byte key, 16-byte random salt, hex-encoded — unchanged scheme). */
+async function hashPassword(
+  ctx: Ctx,
+  password: string,
+): Promise<{ hash: string; salt: string }> {
+  return await ctx.executePrivileged(Privileged.hashPassword, { password });
 }
 
-function verifyPassword(password: string, hash: string, salt: string): boolean {
-  try {
-    const expected = Buffer.from(hash, "hex");
-    const actual = scryptSync(password, salt, 64);
-    return expected.length === actual.length && timingSafeEqual(expected, actual);
-  } catch {
-    return false;
-  }
+async function verifyPassword(
+  ctx: Ctx,
+  password: string,
+  hash: string,
+  salt: string,
+): Promise<boolean> {
+  const res = await ctx.executePrivileged(Privileged.verifyPassword, {
+    password,
+    hash,
+    salt,
+  });
+  return res.ok;
 }
 
 /** Login tokens live 30 days. */
@@ -197,7 +211,7 @@ const TUTOR_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 async function createTutorSession(ctx: Ctx, tutorId: number): Promise<string> {
   const db = ctx.db<typeof schema>();
-  const token = randomBytes(32).toString("hex");
+  const { token } = await ctx.executePrivileged(Privileged.randomToken, { bytes: 32 });
   await db.insert(schema.tutorSessions).values({
     token,
     tutorId,
@@ -1012,6 +1026,7 @@ export const Actions = {
   // passwordHash / passwordSalt.
 
   tutorSignup: defineAction({
+    privileged: CRYPTO_PRIVILEGED,
     description: "Registers a tutor account: name, phone, password, university, department, subjects, classes, areas, experience, fees, gender and an optional photo URL. Returns the public profile plus a login token.",
     request: z.object({
       name: z.string().trim().min(2, "আপনার নাম লিখুন").max(60),
@@ -1038,7 +1053,7 @@ export const Actions = {
       if (existing[0]) {
         throw new Error("এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট আছে — লগইন করুন");
       }
-      const { hash, salt } = hashPassword(args.password);
+      const { hash, salt } = await hashPassword(ctx, args.password);
       const result = await db
         .insert(schema.tutors)
         .values({
@@ -1066,6 +1081,7 @@ export const Actions = {
   }),
 
   tutorLogin: defineAction({
+    privileged: CRYPTO_PRIVILEGED,
     description: "Logs a tutor in with phone and password. Returns the public profile plus a login token.",
     request: z.object({
       phone: phoneSchema,
@@ -1080,7 +1096,7 @@ export const Actions = {
         .where(eq(schema.tutors.phone, args.phone))
         .limit(1);
       const row = rows[0];
-      if (!row || !verifyPassword(args.password, row.passwordHash, row.passwordSalt)) {
+      if (!row || !(await verifyPassword(ctx, args.password, row.passwordHash, row.passwordSalt))) {
         throw new Error("মোবাইল নম্বর বা পাসওয়ার্ড ভুল — আবার চেষ্টা করুন");
       }
       const token = await createTutorSession(ctx, row.id);

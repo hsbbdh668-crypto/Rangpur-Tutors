@@ -45,9 +45,11 @@ const S = {
   headerLoginBtn: { bn: "লগইন", en: "Login" },
   menuAria: { bn: "মেনু খুলুন", en: "Open menu" },
   heroBadge: { bn: "রংপুরের বিশ্বস্ত টিউশন প্ল্যাটফর্ম", en: "Rangpur's Trusted Tuition Platform" },
-  heroTitleStart: { bn: "প্রতিটি শিক্ষার্থীর জন্য", en: "Find the" },
-  heroTitleAccent: { bn: "সঠিক টিউটর", en: "Right Tutor" },
-  heroTitleEnd: { bn: "খুঁজুন", en: "for Every Student" },
+  /* H1 (SEO spec P0 #4): bn reads exactly "রংপুরে সঠিক হোম টিউটর খুঁজুন"
+     (start + accent + end, accent big/bold/white as before). */
+  heroTitleStart: { bn: "রংপুরে সঠিক", en: "Find the Right" },
+  heroTitleAccent: { bn: "হোম টিউটর", en: "Home Tutor" },
+  heroTitleEnd: { bn: "খুঁজুন", en: "in Rangpur" },
   heroSub: {
     bn: "বেগম রোকেয়া বিশ্ববিদ্যালয়, রংপুর মেডিকেল, কারমাইকেল কলেজসহ রংপুরের সেরা প্রতিষ্ঠানের অভিজ্ঞ টিউটর — বাসায় কিংবা অনলাইনে।",
     en: "Experienced tutors from Begum Rokeya University, Rangpur Medical College, Carmichael College and other leading Rangpur institutions — at home or online.",
@@ -712,6 +714,58 @@ const S = {
   },
   applicantColon: { bn: "আবেদনকারী:", en: "Applicant:" },
   feesRowLabel: { bn: "ফি", en: "Fees" },
+
+  /* SEO pages (FAQ / areas / fee guide — keyword research P0+P1) */
+  faqTitle: { bn: "সাধারণ প্রশ্নোত্তর", en: "Frequently Asked Questions" },
+  faqSub: {
+    bn: "রংপুরে হোম টিউটর খোঁজা নিয়ে সবচেয়ে বেশি জিজ্ঞেস করা প্রশ্নের উত্তর।",
+    en: "Answers to the questions people ask most about finding a home tutor in Rangpur.",
+  },
+  boardH1Find: { bn: "টিউটর খুঁজুন — রংপুরে হোম টিউটর", en: "Find a Tutor — Home Tutors in Rangpur" },
+  boardH1Jobs: { bn: "টিউশন জব রংপুর", en: "Tuition Jobs in Rangpur" },
+  boardH1Offers: { bn: "টিউটর অফার — রংপুর", en: "Tutor Offers — Rangpur" },
+  areasTitle: { bn: "এলাকা অনুযায়ী টিউটর খুঁজুন", en: "Find Tutors by Area" },
+  areasSub: {
+    bn: "রংপুরের প্রতিটি এলাকার হোম টিউটর — এলাকা বেছে নিলে সেই এলাকার পোস্ট, আনুমানিক ফি ও প্রশ্নোত্তর দেখা যাবে।",
+    en: "Home tutors for every area of Rangpur — pick an area to see its posts, approximate fees and FAQs.",
+  },
+  areaPostsTitle: { bn: "{area} এলাকার টিউশন পোস্ট", en: "Tuition posts in {area}" },
+  areaNoPosts: {
+    bn: "এই এলাকায় এখনো কোনো পোস্ট নেই — প্রথম পোস্টটি আপনিই দিন, টিউটররা নিজে আবেদন করবেন।",
+    en: "No posts in this area yet — post your requirement first and tutors will apply to you.",
+  },
+  areaIntro: {
+    bn: "{area} এলাকায় বাসায় গিয়ে পড়ানোর হোম টিউটর খুঁজুন — SSC, HSC, গণিত, ইংরেজি, পদার্থবিজ্ঞানসহ সব বিষয়ে। নিচে এই এলাকার বর্তমান পোস্ট, আনুমানিক ফি-তালিকা ও সাধারণ প্রশ্নের উত্তর দেওয়া আছে।",
+    en: "Find home tutors in {area}, Rangpur — for SSC, HSC, Math, English, Physics and every subject. Below are this area's current posts, an approximate fee table and answers to common questions.",
+  },
+  feesH1: { bn: "রংপুরে হোম টিউটরের বেতন কত?", en: "How Much Does a Home Tutor Cost in Rangpur?" },
+  feesIntro: {
+    bn: "রংপুরে হোম টিউটরের মাসিক বেতন আনুমানিক ৳২,৫০০ থেকে ৳৮,০০০ — Baraka Tutors-এর বর্তমান পোস্টগুলোতে এই রেঞ্জেই বেতন দেওয়া আছে। শ্রেণি ও বিষয় অনুযায়ী বেতন আলাদা হয়; নিচের টেবিলটি প্ল্যাটফর্মের লাইভ পোস্ট থেকে তৈরি।",
+    en: "A home tutor in Rangpur costs approximately ৳2,500 to ৳8,000 per month — the salary range on Baraka Tutors' current posts. Fees differ by class and subject; the table below is built from live posts on the platform.",
+  },
+  feesTableTitle: { bn: "শ্রেণি অনুযায়ী আনুমানিক মাসিক ফি", en: "Approximate monthly fees by class" },
+  feesColClass: { bn: "শ্রেণি", en: "Class" },
+  feesColFee: { bn: "আনুমানিক ফি (প্রতি মাসে)", en: "Approximate fee (per month)" },
+  feesColPosts: { bn: "পোস্ট সংখ্যা", en: "Posts" },
+  feesNoData: { bn: "এখনো পোস্ট নেই", en: "No posts yet" },
+  feesNote: {
+    bn: "সব সংখ্যা আনুমানিক — Baraka Tutors-এর লাইভ পোস্টে দেওয়া বেতন থেকে হিসাব করা। অনেক পোস্টে বেতন আলোচনা সাপেক্ষে থাকে, তাই চূড়ান্ত বেতন টিউটরের সঙ্গে কথা বলে ঠিক করুন।",
+    en: "All figures are approximate, calculated from the salaries on live Baraka Tutors posts. Many posts list the salary as negotiable, so confirm the final fee with the tutor.",
+  },
+  feesFactorsTitle: { bn: "বেতন কীসের ওপর নির্ভর করে", en: "What the fee depends on" },
+  feesFactors: {
+    bn: "শিক্ষার্থীর শ্রেণি (প্রাথমিক, SSC, HSC), বিষয়ের সংখ্যা ও ধরন (গণিত, পদার্থবিজ্ঞান, রসায়নে চাহিদা বেশি), সপ্তাহে কত দিন পড়াবেন, হোম টিউটর নাকি অনলাইন, আর টিউটরের অভিজ্ঞতা ও প্রতিষ্ঠান — এই বিষয়গুলোই বেতন ঠিক করে।",
+    en: "The student's class (primary, SSC, HSC), the number and type of subjects (Math, Physics and Chemistry are in high demand), how many days a week the tutor teaches, home vs online, and the tutor's experience and institution — these decide the fee.",
+  },
+  feeGroupPrimary: { bn: "প্রাথমিক (১ম–৫ম শ্রেণি)", en: "Primary (Class 1–5)" },
+  feeGroupJunior: { bn: "৬ষ্ঠ–৮ম শ্রেণি", en: "Class 6–8" },
+  feeGroupSsc: { bn: "SSC (৯ম–১০ম শ্রেণি)", en: "SSC (Class 9–10)" },
+  feeGroupHsc: { bn: "HSC (একাদশ–দ্বাদশ)", en: "HSC (Class 11–12)" },
+  feeGroupAdmission: { bn: "ভর্তি প্রস্তুতি", en: "Admission preparation" },
+  feeGroupAll: { bn: "সব পোস্ট (সামগ্রিক রেঞ্জ)", en: "All posts (overall range)" },
+  subjectLinksTitle: { bn: "বিষয় অনুযায়ী টিউটর খুঁজুন", en: "Find tutors by subject" },
+  footerAreas: { bn: "এলাকা অনুযায়ী টিউটর", en: "Tutors by area" },
+  feesLinkLabel: { bn: "টিউশন ফি গাইড", en: "Tuition fee guide" },
 } as const;
 
 export type StringKey = keyof typeof S;
@@ -754,9 +808,10 @@ export function LangProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    /* html lang follows the mode (SEO spec P0 #5). document.title is NOT
+       set here any more: the app's SEO manager (client/src/seo.ts) owns
+       the title per view + language, and its effect would race this one. */
     document.documentElement.lang = lang === "bn" ? "bn" : "en";
-    document.title =
-      lang === "bn" ? "Baraka Tutors — বারাকা টিউটরস, রংপুর" : "Baraka Tutors — Rangpur";
   }, [lang]);
 
   const setLang = (l: Lang) => {

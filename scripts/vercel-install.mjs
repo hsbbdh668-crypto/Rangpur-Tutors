@@ -11,7 +11,7 @@
 // build container only. It deletes the "@hatch/space-sdk" dependency
 // from package.json (the Vercel client never uses the SDK — vite.config.ts
 // aliases "@hatch/space-sdk/client" and "@hatch/space-sdk/fields" to
-// client/src/vercel-shim.ts, and client/build.mjs is not part of the
+// client/vercel-shim.ts, and client/build.mjs is not part of the
 // Vercel build), then runs the real install. The repo itself is never
 // changed: the container's package.json edit is discarded with the
 // container.

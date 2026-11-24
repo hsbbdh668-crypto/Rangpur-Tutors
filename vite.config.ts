@@ -10,7 +10,7 @@
 //    client/dist (matches vercel.json outputDirectory).
 //  - React + Tailwind v4 (@tailwindcss/vite; tailwindcss 4.1.13 is already
 //    a devDependency).
-//  - Aliases both Hatch SDK entry points to client/src/vercel-shim.ts, so
+//  - Aliases both Hatch SDK entry points to client/vercel-shim.ts, so
 //    the existing client files (api.ts, App.tsx, main.tsx) build unchanged:
 //    the shim's createActionClient returns the REST client, and its
 //    spaceQueryClient / SafeAreaTopScrim / setFailureNoticeText stand in
@@ -48,7 +48,7 @@ import BARAKA_LOGO_DATA_URI from "./client/src/assets/baraka-logo.data";
 
 const repoRoot = dirname(fileURLToPath(import.meta.url));
 const clientDir = resolve(repoRoot, "client");
-const shimPath = resolve(clientDir, "src/vercel-shim.ts");
+const shimPath = resolve(clientDir, "vercel-shim.ts");
 const logoUrlPath = resolve(clientDir, "src/assets/baraka-logo.url.ts");
 
 // Favicon + logo for the Vercel build only (logo #4, see favicon.data.ts
@@ -101,7 +101,7 @@ function hatchMacroRewrite() {
       if (!code.includes("@hatch/space-sdk/fields")) return null;
       const rewritten = code.replace(
         /import\s*\{\s*actionFields\s*\}\s*from\s*"@hatch\/space-sdk\/fields"\s*with\s*\{\s*type:\s*"macro"\s*\}\s*;/,
-        'import { actionFields } from "./vercel-shim";',
+        `import { actionFields } from ${JSON.stringify(shimPath)};`,
       );
       return rewritten === code ? null : rewritten;
     },
@@ -126,5 +126,8 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    // The site targets modern mobile/desktop browsers, all well past
+    // es2022.
+    target: "es2022",
   },
 });

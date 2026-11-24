@@ -22,7 +22,29 @@ subjectLabel,
 timeAgo,
 type Post,
 } from "./lib";
-import { useLang } from "./i18n";
+import { useLang, type StringKey } from "./i18n";
+import {
+  BOARD_TITLE,
+  FEES_FAQ,
+  FEES_TITLE,
+  HOME_DESC,
+  HOME_FAQ,
+  HOME_TITLE,
+  JOBS_TITLE,
+  SEO_AREAS,
+  applyJsonLd,
+  applySeo,
+  areaBySlug,
+  areaFaq,
+  areaTitle,
+  faqPageJsonLd,
+  postInArea,
+  postSeoDescription,
+  postSeoTitle,
+  websiteJsonLd,
+  type FaqEntry,
+  type SeoArea,
+} from "./seo";
 import { TUTOR_TOKEN_KEY, type CommissionStatus } from "./api.rest";
 import barakaLogo from "./assets/baraka-logo.webp";
 import {
@@ -72,7 +94,7 @@ type ChatMessage = ApiResponse<typeof api, "chatPoll">["messages"][number];
 type TutorProfile = ApiResponse<typeof api, "tutorMe">["tutor"];
 type TutorMyApplications = ApiResponse<typeof api, "tutorMyApplications">;
 
-type View = "home" | "board" | "post" | "favorites" | "admin" | "about" | "trust" | "legal" | "signup" | "login" | "dashboard";
+type View = "home" | "board" | "post" | "favorites" | "admin" | "about" | "trust" | "legal" | "signup" | "login" | "dashboard" | "area" | "fees";
 type KindFilter = "all" | "guardian" | "tutor";
 
 /* University cards on the landing page filter the board by institution.
@@ -465,6 +487,15 @@ function Board({
 
   return (
     <div>
+      {/* Page H1 (SEO spec P1 #9): the board is "টিউটর খুঁজুন", the
+          guardian-only board is the "টিউশন জব রংপুর" page. */}
+      <h1 className="mb-4 text-2xl font-extrabold leading-tight text-[var(--text)] sm:text-3xl">
+        {filters.kind === "guardian"
+          ? t("boardH1Jobs")
+          : filters.kind === "tutor"
+            ? t("boardH1Offers")
+            : t("boardH1Find")}
+      </h1>
       {configQuery.data?.notice ? (
         <div className="mb-4 rounded-[var(--radius)] bg-[var(--sky-soft)] px-4 py-3 text-sm font-medium text-[var(--text)]">
           <IconMegaphone className="mr-1 inline h-4 w-4 align-[-2px]" /> {configQuery.data.notice}
@@ -1196,6 +1227,7 @@ function GuardianApplications({ postId }: { postId: number }) {
         }}
       >
         <input
+          {...FIELDS.guardianViewApplications.phone}
           type="tel"
           className={`${inputCls} flex-1`}
           value={phone}
@@ -2675,8 +2707,8 @@ function CommissionEditor({
       <p className="text-sm font-bold text-[var(--text)]">{t("commissionLabel")}</p>
       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
         <input
+          {...FIELDS.adminSetCommission.amount}
           type="number"
-          min={0}
           inputMode="numeric"
           aria-label={t("commissionAmountPh")}
           placeholder={t("commissionAmountPh")}
@@ -4123,11 +4155,15 @@ function Home({
   onBrowseJobs,
   onBecomeTutor,
   onSelectUni,
+  onOpenArea,
+  onOpenFees,
 }: {
   onFindTutor: () => void;
   onBrowseJobs: () => void;
   onBecomeTutor: () => void;
   onSelectUni: (name: string) => void;
+  onOpenArea: (slug: string) => void;
+  onOpenFees: () => void;
 }) {
   const { lang, t } = useLang();
   const num = (n: number | string) => fmtNum(n, lang);
@@ -4158,11 +4194,13 @@ function Home({
         <span className="inline-block rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-xs font-semibold sm:text-sm">
           {t("heroBadge")}
         </span>
-        <h2 className="mt-4 max-w-2xl text-3xl font-extrabold leading-tight sm:text-5xl">
+        {/* The page's single H1 (SEO spec P0 #4) — big, bold, white,
+            text unchanged in wording: "রংপুরে সঠিক হোম টিউটর খুঁজুন". */}
+        <h1 className="mt-4 max-w-2xl text-3xl font-extrabold leading-tight sm:text-5xl">
           {t("heroTitleStart")}
           <span className="text-4xl font-black text-white sm:text-6xl">{"\u00A0"}{t("heroTitleAccent")}</span>{" "}
           {t("heroTitleEnd")}
-        </h2>
+        </h1>
         <p className="mt-3 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
           {t("heroSub")}
         </p>
@@ -4290,6 +4328,44 @@ function Home({
         </ul>
       </section>
 
+      {/* Areas — one link per SEO area page (research §3). Real anchors
+          (href=/area/<slug>) so crawlers can follow them; the click is
+          handled in-app. */}
+      <section className="mt-14 text-center">
+        <h2 className="text-2xl font-bold text-[var(--text)] sm:text-4xl">{t("areasTitle")}</h2>
+        <p className="mx-auto mt-2 max-w-2xl text-sm text-[var(--dim)] sm:text-base">{t("areasSub")}</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {SEO_AREAS.map((a) => (
+            <a
+              key={a.slug}
+              href={`/area/${a.slug}`}
+              onClick={(e) => {
+                e.preventDefault();
+                onOpenArea(a.slug);
+              }}
+              className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] shadow-[0_1px_2px_rgba(30,140,200,0.06)]"
+            >
+              <IconPin className="mr-1 inline h-4 w-4 align-[-2px]" />
+              {lang === "en" ? `${a.en}, Rangpur` : `${a.bn}, রংপুর`}
+            </a>
+          ))}
+          <a
+            href="/fees"
+            onClick={(e) => {
+              e.preventDefault();
+              onOpenFees();
+            }}
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] shadow-[0_1px_2px_rgba(30,140,200,0.06)]"
+          >
+            {t("feesLinkLabel")}
+          </a>
+        </div>
+      </section>
+
+      {/* FAQ — the 7 researched GEO questions, verbatim (research §6);
+          FAQPage JSON-LD is injected by the app's SEO manager. */}
+      <FaqSection faq={HOME_FAQ} />
+
       {/* Final CTA banner — blue (accent-strong), centred. */}
       <section className="mt-6 rounded-3xl bg-[var(--navy-2)] px-5 py-10 text-center text-white sm:py-12">
         <span className="inline-block rounded-full border border-white/40 bg-white/15 px-3.5 py-1.5 text-xs font-semibold sm:text-sm">
@@ -4305,6 +4381,266 @@ function Home({
           {t("ctaBtn")} →
         </button>
       </section>
+    </div>
+  );
+}
+
+/* ---------------- SEO: FAQ / fee table / area & fee pages ---------------- */
+
+/** Visible FAQ block: question verbatim in an <h3> inside <summary>
+    (native <details>, content stays in the DOM for crawlers/AI search),
+    direct answer first. The matching FAQPage JSON-LD is injected by the
+    app's SEO manager. */
+function FaqSection({ faq, heading }: { faq: FaqEntry[]; heading?: boolean }) {
+  const { lang, t } = useLang();
+  return (
+    <section className="mt-14">
+      {heading === false ? null : (
+        <>
+          <h2 className="text-center text-2xl font-bold text-[var(--text)] sm:text-4xl">{t("faqTitle")}</h2>
+          <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-[var(--dim)] sm:text-base">{t("faqSub")}</p>
+        </>
+      )}
+      <div className="mx-auto mt-6 grid max-w-4xl grid-cols-1 gap-3">
+        {faq.map((f) => (
+          <details
+            key={f.q.bn}
+            className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-5 py-4 shadow-[0_1px_2px_rgba(30,140,200,0.06)]"
+          >
+            <summary className="cursor-pointer list-none">
+              <h3 className="inline text-base font-bold text-[var(--text)] sm:text-lg">{f.q[lang]}</h3>
+            </summary>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--dim)] sm:text-base">{f.a[lang]}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* Class groups for the fee table — matched against a post's class list. */
+const FEE_GROUPS: { key: StringKey; classes: string[] }[] = [
+  { key: "feeGroupPrimary", classes: ["১ম শ্রেণি", "২য় শ্রেণি", "৩য় শ্রেণি", "৪র্থ শ্রেণি", "৫ম শ্রেণি", "প্লে–নার্সারি"] },
+  { key: "feeGroupJunior", classes: ["৬ষ্ঠ শ্রেণি", "৭ম শ্রেণি", "৮ম শ্রেণি"] },
+  { key: "feeGroupSsc", classes: ["৯ম শ্রেণি", "১০ম শ্রেণি"] },
+  { key: "feeGroupHsc", classes: ["একাদশ (HSC)", "দ্বাদশ (HSC)"] },
+  { key: "feeGroupAdmission", classes: ["ভর্তি প্রস্তুতি"] },
+];
+
+function feeRangeOf(posts: Post[]): { min: number; max: number; count: number } | null {
+  let min = Number.POSITIVE_INFINITY;
+  let max = 0;
+  let count = 0;
+  for (const p of posts) {
+    const lo = p.salaryMin ?? p.salaryMax;
+    const hi = p.salaryMax ?? p.salaryMin;
+    if (lo == null && hi == null) continue;
+    if (lo != null) min = Math.min(min, lo);
+    if (hi != null) max = Math.max(max, hi);
+    count += 1;
+  }
+  return count > 0 ? { min, max, count } : null;
+}
+
+/** Approximate fee table computed from LIVE approved posts (never a
+    competitor's numbers). A group with no salaried posts shows "no posts
+    yet" instead of an invented figure. */
+function FeeTable({ posts }: { posts: Post[] }) {
+  const { lang, t } = useLang();
+  const num = (n: number | string) => fmtNum(n, lang);
+  const money = (n: number) => `৳${num(n.toLocaleString("en-IN"))}`;
+  const rows = FEE_GROUPS.map((g) => ({
+    label: t(g.key),
+    range: feeRangeOf(posts.filter((p) => p.classes.some((c) => g.classes.includes(c)))),
+  }));
+  const overall = feeRangeOf(posts);
+  const feeCell = (r: { min: number; max: number } | null) =>
+    r == null ? t("feesNoData") : r.min === r.max ? money(r.min) : `${money(r.min)} – ${money(r.max)}`;
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-[var(--text)] sm:text-2xl">{t("feesTableTitle")}</h2>
+      <div className="mt-3 overflow-x-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)]">
+        <table className="w-full min-w-[420px] text-left text-sm sm:text-base">
+          <thead>
+            <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]">
+              <th scope="col" className="px-4 py-3 font-bold text-[var(--text)]">{t("feesColClass")}</th>
+              <th scope="col" className="px-4 py-3 font-bold text-[var(--text)]">{t("feesColFee")}</th>
+              <th scope="col" className="px-4 py-3 font-bold text-[var(--text)]">{t("feesColPosts")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.label} className="border-b border-[var(--border)] last:border-0">
+                <td className="px-4 py-3 font-medium text-[var(--text)]">{r.label}</td>
+                <td className="px-4 py-3 text-[var(--dim)]">{feeCell(r.range)}</td>
+                <td className="px-4 py-3 text-[var(--dim)]">{r.range ? num(r.range.count) : num(0)}</td>
+              </tr>
+            ))}
+            <tr className="bg-[var(--accent-soft)]">
+              <td className="px-4 py-3 font-bold text-[var(--text)]">{t("feeGroupAll")}</td>
+              <td className="px-4 py-3 font-bold text-[var(--accent-strong)]">{feeCell(overall)}</td>
+              <td className="px-4 py-3 font-bold text-[var(--accent-strong)]">{overall ? num(overall.count) : num(0)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-[var(--dim)] sm:text-sm">{t("feesNote")}</p>
+    </div>
+  );
+}
+
+/** Subject quick-links: jump to the board filtered by that subject. */
+function SubjectLinks({ onPick }: { onPick: (subject: string) => void }) {
+  const { lang, t } = useLang();
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-[var(--text)] sm:text-2xl">{t("subjectLinksTitle")}</h2>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {SUBJECTS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            className="rounded-full bg-[var(--surface-2)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)]"
+          >
+            {subjectLabel(s, lang)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Area page (research §3 template): H1 + live posts for the area +
+    approximate fee table + subject links + FAQ. The "N tutors" count is
+    only ever the real count of matching live posts — never invented. */
+function AreaView({
+  area,
+  onOpen,
+  onFindTutor,
+  onPickSubject,
+}: {
+  area: SeoArea;
+  onOpen: (post: Post) => void;
+  onFindTutor: () => void;
+  onPickSubject: (subject: string) => void;
+}) {
+  const { lang, t } = useLang();
+  const postsQuery = useQuery({
+    queryKey: ["posts", { limit: 200 }],
+    queryFn: () => api.listPosts({ limit: 200 }),
+  });
+  const favIdsQuery = useQuery({
+    queryKey: ["favoriteIds"],
+    queryFn: () => api.listFavoriteIds({}),
+  });
+  const favIds = new Set(favIdsQuery.data?.favoriteIds ?? []);
+  const queryClient = useQueryClient();
+  const favMutation = useMutation({
+    mutationFn: async (post: Post) => await api.toggleFavorite({ postId: post.id }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["favoriteIds"] });
+      void queryClient.invalidateQueries({ queryKey: ["favorites"] });
+    },
+  });
+  const all = postsQuery.data?.posts ?? [];
+  const posts = all.filter((p) => postInArea(p, area));
+  const areaName = lang === "en" ? area.en : area.bn;
+  return (
+    <div className="mx-auto max-w-4xl">
+      <h1 className="text-2xl font-extrabold leading-tight text-[var(--text)] sm:text-4xl">
+        {lang === "en" ? `Home Tutors in ${area.en}, Rangpur` : `${area.bn} এলাকায় হোম টিউটর`}
+      </h1>
+      <p className="mt-3 text-base leading-relaxed text-[var(--dim)]">{t("areaIntro", { area: areaName })}</p>
+
+      <section className="mt-8">
+        <h2 className="text-xl font-bold text-[var(--text)] sm:text-2xl">{t("areaPostsTitle", { area: areaName })}</h2>
+        {postsQuery.isLoading ? (
+          <p className="py-8 text-center text-[var(--dim)]">{t("loadingShort")}</p>
+        ) : posts.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState title={t("areaPostsTitle", { area: areaName })} body={t("areaNoPosts")} />
+          </div>
+        ) : (
+          <div className="mt-3 grid grid-cols-1 gap-3">
+            {posts.map((p) => (
+              <PostCard
+                key={p.id}
+                post={p}
+                isFavorite={favIds.has(p.id)}
+                onOpen={onOpen}
+                onToggleFavorite={(post) => favMutation.mutate(post)}
+              />
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={onFindTutor}
+          className="mt-5 rounded-full bg-[var(--accent)] px-6 py-3 text-base font-bold text-white shadow-lg"
+        >
+          {t("heroFindBtn")} →
+        </button>
+      </section>
+
+      <section className="mt-10">
+        <FeeTable posts={posts.length > 0 ? posts : all} />
+      </section>
+
+      <section className="mt-10">
+        <SubjectLinks onPick={onPickSubject} />
+      </section>
+
+      <FaqSection faq={areaFaq(area)} heading={false} />
+    </div>
+  );
+}
+
+/** Fee-guide page: "রংপুরে হোম টিউটরের বেতন কত?" — direct answer first,
+    live-data fee table, factors, fee FAQ + FAQPage schema (SEO manager). */
+function FeesView({
+  onFindTutor,
+  onPickSubject,
+}: {
+  onFindTutor: () => void;
+  onPickSubject: (subject: string) => void;
+}) {
+  const { t } = useLang();
+  const postsQuery = useQuery({
+    queryKey: ["posts", { limit: 200 }],
+    queryFn: () => api.listPosts({ limit: 200 }),
+  });
+  const all = postsQuery.data?.posts ?? [];
+  return (
+    <div className="mx-auto max-w-4xl">
+      <h1 className="text-2xl font-extrabold leading-tight text-[var(--text)] sm:text-4xl">{t("feesH1")}</h1>
+      <p className="mt-3 text-base leading-relaxed text-[var(--dim)]">{t("feesIntro")}</p>
+
+      <section className="mt-8">
+        {postsQuery.isLoading ? (
+          <p className="py-8 text-center text-[var(--dim)]">{t("loadingShort")}</p>
+        ) : (
+          <FeeTable posts={all} />
+        )}
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-xl font-bold text-[var(--text)] sm:text-2xl">{t("feesFactorsTitle")}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-[var(--dim)] sm:text-base">{t("feesFactors")}</p>
+        <button
+          type="button"
+          onClick={onFindTutor}
+          className="mt-5 rounded-full bg-[var(--accent)] px-6 py-3 text-base font-bold text-white shadow-lg"
+        >
+          {t("heroFindBtn")} →
+        </button>
+      </section>
+
+      <section className="mt-10">
+        <SubjectLinks onPick={onPickSubject} />
+      </section>
+
+      <FaqSection faq={FEES_FAQ} heading={false} />
     </div>
   );
 }
@@ -4506,11 +4842,15 @@ function LegalView({
 function SiteFooter({
   onNavigate,
   onLegal,
+  onOpenArea,
+  onOpenFees,
 }: {
   onNavigate: (v: View) => void;
   onLegal: (d: "privacy" | "terms") => void;
+  onOpenArea: (slug: string) => void;
+  onOpenFees: () => void;
 }) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const quickLinks: { label: string; onClick: () => void }[] = [
     { label: t("navHome"), onClick: () => onNavigate("home") },
     { label: t("navBoard"), onClick: () => onNavigate("board") },
@@ -4596,6 +4936,41 @@ function SiteFooter({
           </ul>
         </div>
       </div>
+      {/* Area pages + fee guide — real crawlable anchors (research §8:
+          footer carries the area list as natural links). */}
+      <div className="border-t border-white/15">
+        <div className="mx-auto max-w-6xl px-4 py-5">
+          <h3 className="text-sm font-bold">{t("footerAreas")}</h3>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-white/80">
+            {SEO_AREAS.map((a) => (
+              <li key={a.slug}>
+                <a
+                  href={`/area/${a.slug}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenArea(a.slug);
+                  }}
+                  className="hover:text-white hover:underline"
+                >
+                  {lang === "en" ? `Tutors in ${a.en}` : `${a.bn} এলাকায় টিউটর`}
+                </a>
+              </li>
+            ))}
+            <li>
+              <a
+                href="/fees"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onOpenFees();
+                }}
+                className="hover:text-white hover:underline"
+              >
+                {t("feesLinkLabel")}
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
       <div className="border-t border-white/15 py-4 text-center text-xs text-white/70">
         © 2026 Baraka Tutors
       </div>
@@ -4615,6 +4990,10 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [filters, setFilters] = useState<BoardFilters>(EMPTY_FILTERS);
   const [selected, setSelected] = useState<Post | null>(null);
+  /* SEO routes (spec P1 #8/#10): /area/<slug> and /fees are real views;
+     /post/<id> deep-links open that post's detail. */
+  const [areaSlug, setAreaSlug] = useState<string | null>(null);
+  const [deepPostId, setDeepPostId] = useState<number | null>(null);
 
   /* Tutor session: token in localStorage, restored on load via tutorMe. */
   const [tutorToken, setTutorToken] = useState<string | null>(() => {
@@ -4672,15 +5051,117 @@ export function App() {
     window.scrollTo(0, 0);
   }, [view]);
 
+  /* URL sync for the shareable SEO routes. pushState is best-effort: a
+     sandboxed iframe may refuse it, and the app must work regardless. */
+  const pushPath = (path: string) => {
+    try {
+      window.history.pushState(null, "", path);
+    } catch {
+      /* history unavailable — in-app navigation still works */
+    }
+  };
+
+  const pathForView = (v: View, kind: KindFilter, slug: string | null): string => {
+    switch (v) {
+      case "board":
+        return kind === "guardian" ? "/jobs" : "/board";
+      case "area":
+        return slug ? `/area/${slug}` : "/";
+      case "fees":
+        return "/fees";
+      case "about":
+        return "/about";
+      case "trust":
+        return "/trust";
+      default:
+        return "/";
+    }
+  };
+
+  /* First load only: honour an incoming shareable URL (/post/<id>,
+     /area/<slug>, /fees, /jobs, /board) instead of always landing home. */
+  useEffect(() => {
+    const path = window.location.pathname;
+    const postMatch = /^\/post\/(\d+)\/?$/.exec(path);
+    if (postMatch) {
+      setDeepPostId(Number(postMatch[1]));
+      return;
+    }
+    const areaMatch = /^\/area\/([a-z0-9-]+)\/?$/.exec(path);
+    if (areaMatch && areaMatch[1] && areaBySlug(areaMatch[1])) {
+      setAreaSlug(areaMatch[1]);
+      setView("area");
+      return;
+    }
+    if (path === "/fees" || path === "/fees/") {
+      setView("fees");
+      return;
+    }
+    if (path === "/jobs" || path === "/jobs/") {
+      setFilters((f) => ({ ...f, kind: "guardian" }));
+      setView("board");
+      return;
+    }
+    if (path === "/board" || path === "/board/" || path === "/tutors" || path === "/tutors/") {
+      setView("board");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Deep-linked post: fetch it and open its detail (spec P1 #8 — opening
+     /post/<id> shows that post, not just the homepage). */
+  const deepPostQuery = useQuery({
+    queryKey: ["deepPost", deepPostId],
+    queryFn: () => api.getPost({ id: deepPostId ?? 0 }),
+    enabled: deepPostId != null,
+    retry: false,
+  });
+  useEffect(() => {
+    if (deepPostQuery.data?.post) setSelected(deepPostQuery.data.post);
+  }, [deepPostQuery.data]);
+
+  const openPost = (post: Post) => {
+    setSelected(post);
+    pushPath(`/post/${post.id}`);
+  };
+  const closePost = () => {
+    setSelected(null);
+    pushPath(pathForView(view, filters.kind, areaSlug));
+  };
+
   const goView = (v: View) => {
     setMenuOpen(false);
     setView(v);
+    pushPath(pathForView(v, filters.kind, areaSlug));
+  };
+
+  const goArea = (slug: string) => {
+    setMenuOpen(false);
+    setAreaSlug(slug);
+    setView("area");
+    pushPath(`/area/${slug}`);
+  };
+
+  const goFees = () => {
+    setMenuOpen(false);
+    setView("fees");
+    pushPath("/fees");
+  };
+
+  const goBoardSubject = (subject: string) => {
+    setFilters({ ...EMPTY_FILTERS, subject });
+    setUniFilter(null);
+    setMenuOpen(false);
+    setView("board");
+    pushPath("/board");
   };
 
   const goBoard = (kind: KindFilter = "all") => {
     setFilters((f) => ({ ...f, kind }));
     setUniFilter(null);
-    goView("board");
+    setMenuOpen(false);
+    setView("board");
+    pushPath(kind === "guardian" ? "/jobs" : "/board");
   };
 
   const goPost = (kind: "guardian" | "tutor") => {
@@ -4735,6 +5216,75 @@ export function App() {
     { key: "about", label: t("navAbout"), icon: <IconUser className="h-4 w-4" />, onClick: () => goView("about"), active: view === "about" },
     { key: "trust", label: t("navTrust"), icon: <IconShieldCheck className="h-4 w-4" />, onClick: () => goView("trust"), active: view === "trust" },
   ];
+
+  const currentArea = areaSlug ? areaBySlug(areaSlug) : null;
+
+  /* SEO manager (spec P0 #1–#3, P1 #8–#10): per-view <title>, meta
+     description, canonical, Open Graph + Twitter card, and JSON-LD
+     (WebSite/Organization + FAQPage where the page shows an FAQ).
+     Re-runs on language change, so document.title follows the mode. */
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path === "/admin" || path.startsWith("/admin/")) {
+      applySeo({ title: "Admin — Baraka Tutors", description: HOME_DESC[lang], path: "/admin" });
+      applyJsonLd(null);
+      return;
+    }
+    if (selected) {
+      applySeo({
+        title: postSeoTitle(selected, lang),
+        description: postSeoDescription(selected, lang),
+        path: `/post/${selected.id}`,
+        type: "article",
+      });
+      applyJsonLd(null);
+      return;
+    }
+    if (view === "home") {
+      applySeo({ title: HOME_TITLE[lang], description: HOME_DESC[lang], path: "/" });
+      applyJsonLd([websiteJsonLd(), faqPageJsonLd(HOME_FAQ, lang)]);
+    } else if (view === "board") {
+      const jobs = filters.kind === "guardian";
+      applySeo({
+        title: jobs ? JOBS_TITLE[lang] : BOARD_TITLE[lang],
+        description: jobs
+          ? lang === "en"
+            ? "Tuition jobs in Rangpur — browse guardians' tuition posts and apply. Dhap, Lalbagh, Modern Mor and every area of Rangpur."
+            : "রংপুরে টিউশন জব — গার্ডিয়ানদের টিউশন পোস্ট দেখুন ও আবেদন করুন। ধাপ, লালবাগ, মর্ডান মোড়সহ রংপুরের সব এলাকায়।"
+          : HOME_DESC[lang],
+        path: jobs ? "/jobs" : "/board",
+      });
+      applyJsonLd(null);
+    } else if (view === "area" && currentArea) {
+      applySeo({
+        title: areaTitle(currentArea, lang),
+        description:
+          lang === "en"
+            ? `Find home tutors in ${currentArea.en}, Rangpur — current tuition posts, approximate fees and FAQs for the ${currentArea.en} area on Baraka Tutors.`
+            : `${currentArea.bn} এলাকায় হোম টিউটর খুঁজুন — Baraka Tutors-এ এই এলাকার বর্তমান টিউশন পোস্ট, আনুমানিক ফি ও প্রশ্নোত্তর।`,
+        path: `/area/${currentArea.slug}`,
+      });
+      applyJsonLd(faqPageJsonLd(areaFaq(currentArea), lang));
+    } else if (view === "fees") {
+      applySeo({
+        title: FEES_TITLE[lang],
+        description:
+          lang === "en"
+            ? "Home tutor fees in Rangpur: approximately ৳2,500–8,000 per month — class-by-class approximate fee table and a full guide on Baraka Tutors."
+            : "রংপুরে হোম টিউটরের মাসিক বেতন আনুমানিক ৳২,৫০০–৮,০০০ — শ্রেণি অনুযায়ী আনুমানিক ফি-তালিকা ও পুরো গাইড Baraka Tutors-এ।",
+        path: "/fees",
+      });
+      applyJsonLd(faqPageJsonLd(FEES_FAQ, lang));
+    } else {
+      applySeo({
+        title: HOME_TITLE[lang],
+        description: HOME_DESC[lang],
+        path: pathForView(view, filters.kind, areaSlug),
+      });
+      applyJsonLd(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, lang, selected, currentArea, filters.kind, areaSlug]);
 
   // Separate admin area: /admin renders ONLY the admin panel — no public
   // header, board, post form, footer or chat widget. The passcode flow is
@@ -4928,6 +5478,8 @@ export function App() {
               setFilters((f) => ({ ...f, kind: "all" }));
               goView("board");
             }}
+            onOpenArea={goArea}
+            onOpenFees={goFees}
           />
         ) : null}
         {view === "board" ? (
@@ -4935,7 +5487,7 @@ export function App() {
             <Board
               filters={filters}
               setFilters={setFilters}
-              onOpen={setSelected}
+              onOpen={openPost}
               institutionFilter={uniFilter}
               onClearInstitution={() => setUniFilter(null)}
             />
@@ -4967,7 +5519,7 @@ export function App() {
               tutor={tutor}
               token={tutorToken}
               onLogout={handleTutorLogout}
-              onOpenPost={setSelected}
+              onOpenPost={openPost}
               onNewOffer={() => goPost("tutor")}
             />
           ) : tutorToken ? (
@@ -4980,7 +5532,7 @@ export function App() {
         ) : null}
         {view === "favorites" ? (
           <div className="mx-auto max-w-4xl">
-            <Favorites onOpen={setSelected} />
+            <Favorites onOpen={openPost} />
           </div>
         ) : null}
         {view === "admin" ? (
@@ -4989,11 +5541,22 @@ export function App() {
           </div>
         ) : null}
         {view === "about" ? <AboutView /> : null}
-        {view === "trust" ? <TrustCheckView onOpen={setSelected} /> : null}
+        {view === "trust" ? <TrustCheckView onOpen={openPost} /> : null}
+        {view === "area" && currentArea ? (
+          <AreaView
+            area={currentArea}
+            onOpen={openPost}
+            onFindTutor={() => goPost("guardian")}
+            onPickSubject={goBoardSubject}
+          />
+        ) : null}
+        {view === "fees" ? (
+          <FeesView onFindTutor={() => goPost("guardian")} onPickSubject={goBoardSubject} />
+        ) : null}
         {view === "legal" ? <LegalView doc={legalDoc} onChange={setLegalDoc} /> : null}
       </main>
 
-      <SiteFooter onNavigate={goView} onLegal={goLegal} />
+      <SiteFooter onNavigate={goView} onLegal={goLegal} onOpenArea={goArea} onOpenFees={goFees} />
 
       {/* Mobile bottom nav */}
       <nav
@@ -5035,7 +5598,7 @@ export function App() {
         <PostDetail
           post={selected}
           isFavorite={favIds.has(selected.id)}
-          onClose={() => setSelected(null)}
+          onClose={closePost}
           onToggleFavorite={(p) => favMutation.mutate(p)}
         />
       ) : null}

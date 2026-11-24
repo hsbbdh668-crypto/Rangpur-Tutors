@@ -5,7 +5,7 @@
 // REST routes under /api/* instead of POSTing {action, args} to
 // ./actions (which does not exist on Vercel).
 //
-// Used only under Vite (see vite.config.ts + client/src/vercel-shim.ts):
+// Used only under Vite (see vite.config.ts + client/vercel-shim.ts):
 // the Hatch-hosted artifact keeps using client/src/api.ts with the
 // @hatch/space-sdk action client. This file is never imported by the
 // Hatch build.
