@@ -480,6 +480,24 @@ const S = {
 
   /* Facebook group posting (/poster) */
   tabPoster: { bn: "গ্রুপ পোস্টিং", en: "Group Posting" },
+
+  /* Chatbot training (admin panel) */
+  tabTraining: { bn: "AI প্রশিক্ষণ", en: "AI Training" },
+  trainingTitle: { bn: "চ্যাটবটকে শেখান", en: "Teach the Chatbot" },
+  trainingHint: { bn: "এখানে প্রশ্ন আর তার উত্তর লিখে রাখুন — ভিজিটর ওই ধরনের প্রশ্ন করলে বট আপনার লেখা উত্তরটাই দেবে। বট কিছু না জানলে নিজে বানাবে না, অ্যাডমিনকে জানাবে।", en: "Write a question and its answer here — when a visitor asks something like it, the bot will reply with your answer. If the bot doesn't know something, it won't invent it; it will flag the admin." },
+  trainingDefaultNote: { bn: "এখন ডিফল্ট উত্তরগুলো চলছে — আপনি বদলে সংরক্ষণ করলে আপনার লেখা উত্তরগুলোই চলবে।", en: "The default answers are active now — once you save your own, those will be used instead." },
+  trainingCustomNote: { bn: "আপনার লেখা উত্তরগুলো চলছে।", en: "Your saved answers are active." },
+  trainingQLabel: { bn: "প্রশ্ন", en: "Question" },
+  trainingALabel: { bn: "উত্তর", en: "Answer" },
+  trainingQPh: { bn: "যেমন: টিউশনের ফি কত?", en: "E.g. How much is the tuition fee?" },
+  trainingAPh: { bn: "বট যেভাবে উত্তর দেবে, সেভাবে লিখুন…", en: "Write the answer the way the bot should reply…" },
+  trainingAddBtn: { bn: "নতুন প্রশ্ন–উত্তর যোগ করুন", en: "Add a question–answer pair" },
+  trainingDeleteBtn: { bn: "মুছুন", en: "Delete" },
+  trainingSaveBtn: { bn: "প্রশিক্ষণ সংরক্ষণ করুন", en: "Save training" },
+  trainingSavedMsg: { bn: "সংরক্ষিত হয়েছে — বট এখন থেকে এগুলো ব্যবহার করবে", en: "Saved — the bot will use these from now on" },
+  trainingResetBtn: { bn: "ডিফল্ট উত্তরে ফিরে যান", en: "Reset to default answers" },
+  trainingResetConfirmBtn: { bn: "নিশ্চিত — ডিফল্টে ফিরে যান", en: "Confirm — reset to defaults" },
+  trainingEmpty: { bn: "এখনো কোনো প্রশ্ন–উত্তর নেই — নিচে যোগ করুন।", en: "No question–answer pairs yet — add one below." },
   posterTitle: { bn: "ফেসবুক গ্রুপ পোস্টিং", en: "Facebook Group Posting" },
   posterTitleSub: { bn: "Baraka Tutors · পোস্টার", en: "Baraka Tutors · Poster" },
   posterLoginTitle: { bn: "পোস্টার লগইন", en: "Poster Login" },

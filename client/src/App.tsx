@@ -3456,6 +3456,192 @@ function StatBox({ label, value, alert }: { label: string; value: number; alert?
   );
 }
 
+/* ---------------- chatbot training (admin) ---------------- */
+// Admin-taught question–answer pairs for the chatbot. The list loads
+// from /api/admin (chatTrainingList); saving stores it as JSON in the
+// settings table (chat_training_qa) and the AI reads it into its
+// system prompt on every reply. Until the admin saves their own pairs,
+// the defaults from lib/chatTraining.ts apply.
+function AdminTraining({ passcode }: { passcode: string }) {
+  const { t } = useLang();
+  const queryClient = useQueryClient();
+  const [rows, setRows] = useState<{ q: string; a: string }[]>([]);
+  const [saved, setSaved] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [error, setError] = useState("");
+  const init = useRef(false);
+
+  const listQuery = useQuery({
+    queryKey: ["adminChatTraining", passcode],
+    queryFn: async () => await api.adminChatTrainingList({ passcode }),
+  });
+
+  useEffect(() => {
+    if (listQuery.data && !init.current) {
+      setRows(listQuery.data.qa);
+      init.current = true;
+    }
+  }, [listQuery.data]);
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ["adminChatTraining"] });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () =>
+      await api.adminChatTrainingSave({
+        passcode,
+        qa: rows.filter((r) => r.q.trim() && r.a.trim()),
+      }),
+    onSuccess: () => {
+      setSaved(true);
+      setError("");
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : t("failedShort")),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: async () => await api.adminChatTrainingReset({ passcode }),
+    onSuccess: () => {
+      setConfirmReset(false);
+      setSaved(false);
+      setError("");
+      init.current = false;
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : t("failedShort")),
+  });
+
+  const setRow = (i: number, patch: Partial<{ q: string; a: string }>) => {
+    setSaved(false);
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <h3 className="mb-1 text-base font-bold text-[var(--text)]"><IconBot className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("trainingTitle")}</h3>
+        <p className="text-sm text-[var(--dim)]">{t("trainingHint")}</p>
+        {listQuery.data ? (
+          <p className="mt-2 text-xs font-semibold text-[var(--accent-strong)]">
+            {listQuery.data.isDefault ? t("trainingDefaultNote") : t("trainingCustomNote")}
+          </p>
+        ) : null}
+      </div>
+
+      {listQuery.isPending ? (
+        <p className="py-8 text-center text-[var(--dim)]">{t("loadingShort")}</p>
+      ) : rows.length === 0 ? (
+        <p className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--dim)]">
+          {t("trainingEmpty")}
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3">
+          {rows.map((r, i) => (
+            <div
+              key={i}
+              className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-sm font-bold text-[var(--text)]">
+                  {t("trainingQLabel")} {i + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaved(false);
+                    setRows((prev) => prev.filter((_, idx) => idx !== i));
+                  }}
+                  className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--danger)]"
+                >
+                  {t("trainingDeleteBtn")}
+                </button>
+              </div>
+              <Field label={t("trainingQLabel")}>
+                <input
+                  aria-label={t("trainingQLabel")}
+                  className={inputCls}
+                  value={r.q}
+                  onChange={(e) => setRow(i, { q: e.target.value })}
+                  placeholder={t("trainingQPh")}
+                />
+              </Field>
+              <div className="mt-2">
+                <Field label={t("trainingALabel")}>
+                  <textarea
+                    aria-label={t("trainingALabel")}
+                    className={inputCls}
+                    rows={3}
+                    value={r.a}
+                    onChange={(e) => setRow(i, { a: e.target.value })}
+                    placeholder={t("trainingAPh")}
+                  />
+                </Field>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setSaved(false);
+            setRows((prev) => [...prev, { q: "", a: "" }]);
+          }}
+          className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text)]"
+        >
+          {t("trainingAddBtn")}
+        </button>
+        <button
+          type="button"
+          disabled={saveMutation.isPending}
+          onClick={() => saveMutation.mutate()}
+          className="rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {saveMutation.isPending ? t("saving") : t("trainingSaveBtn")}
+        </button>
+        {saved ? (
+          <span className="text-sm font-semibold text-[var(--accent-strong)]"><IconCheckCircle className="mr-1 inline h-4 w-4 align-[-2px]" /> {t("trainingSavedMsg")}</span>
+        ) : null}
+      </div>
+      {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        {confirmReset ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={resetMutation.isPending}
+              onClick={() => resetMutation.mutate()}
+              className="rounded-full bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {t("trainingResetConfirmBtn")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmReset(false)}
+              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--dim)]"
+            >
+              {t("cancelBtn")}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--dim)]"
+          >
+            {t("trainingResetBtn")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminPanel() {
   const { lang, t } = useLang();
   const num = (n: number | string) => fmtNum(n, lang);
@@ -3463,7 +3649,7 @@ function AdminPanel() {
   const [passcode, setPasscode] = useState(() => sessionStorage.getItem("rt-admin") ?? "");
   const [entered, setEntered] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [section, setSection] = useState<"posts" | "applications" | "reports" | "chats" | "settings" | "poster">("posts");
+  const [section, setSection] = useState<"posts" | "applications" | "reports" | "chats" | "training" | "settings" | "poster">("posts");
   const [statusFilter, setStatusFilter] = useState<"" | Post["status"]>("pending");
   const [kindFilter, setKindFilter] = useState<"" | "guardian" | "tutor">("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -3630,6 +3816,7 @@ function AdminPanel() {
       icon: <IconChat className="mr-1 inline h-4 w-4 align-[-2px]" />,
       label: t("tabChats") + (chatsNeedingAdmin ? t("tabChatsSuffix", { n: num(chatsNeedingAdmin) }) : ""),
     },
+    { v: "training" as const, icon: <IconBot className="mr-1 inline h-4 w-4 align-[-2px]" />, label: t("tabTraining") },
     { v: "settings" as const, icon: <IconSettings className="mr-1 inline h-4 w-4 align-[-2px]" />, label: t("tabSettings") },
     { v: "poster" as const, icon: <IconMegaphone className="mr-1 inline h-4 w-4 align-[-2px]" />, label: t("tabPoster") },
   ];
@@ -3995,6 +4182,7 @@ function AdminPanel() {
       ) : null}
 
       {section === "chats" ? <AdminChats passcode={passcode} /> : null}
+      {section === "training" ? <AdminTraining passcode={passcode} /> : null}
       {section === "poster" ? <AdminPoster passcode={passcode} /> : null}
 
       {section === "settings" ? (

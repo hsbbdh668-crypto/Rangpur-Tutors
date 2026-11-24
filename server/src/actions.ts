@@ -19,6 +19,17 @@ import { defineAction, z, type ActionsModule, type Ctx } from "@hatch/space-sdk"
 import { Privileged } from "@space/privileged";
 import { and, desc, eq } from "drizzle-orm";
 import * as schema from "./schema";
+// Chatbot training (shared with the Vercel routes in api/chat.ts and
+// api/admin.ts): system prompt, default Q&A pairs, parse/format
+// helpers. Single source of truth — server/src/chatTraining.ts.
+import {
+  CHAT_SYSTEM_PROMPT,
+  CHAT_TRAINING_SETTING_KEY,
+  DEFAULT_TRAINING_QA,
+  formatTrainingQAForPrompt,
+  parseTrainingQA,
+  type TrainingQA,
+} from "./chatTraining";
 
 /**
  * Reads the ADMIN_PASSCODE environment variable through the privileged
@@ -472,6 +483,12 @@ const chatConversationShape = z.object({
   updatedAt: z.string(),
 });
 
+// One admin-taught question–answer pair for the chatbot (training data).
+const trainingQaShape = z.object({
+  q: z.string().trim().min(1).max(300),
+  a: z.string().trim().min(1).max(1000),
+});
+
 type ChatMessageRow = typeof schema.chatMessages.$inferSelect;
 type ChatConversationRow = typeof schema.chatConversations.$inferSelect;
 
@@ -529,23 +546,14 @@ function chatFallback(lang: "bn" | "en"): string {
     : "দুঃখিত, এই মুহূর্তে উত্তর দিতে পারলাম না। চ্যাটটি অ্যাডমিনের জন্য চিহ্নিত করে রেখেছি — তিনি এখানেই রিপ্লাই করবেন।";
 }
 
-const CHAT_SYSTEM_PROMPT = `You are the friendly assistant of "Baraka Tutors" (বারাকা টিউটরস), a tuition board for Rangpur, Bangladesh, where guardians post tuition requests and tutors post tuition offers.
-
-How to talk:
-- Talk like a warm, helpful human friend — never robotic, never canned or repetitive, never start replies with the same phrase twice. Always reply in the SAME language and script the visitor just used, and stay entirely in that script: Bangla script (বাংলা) gets a reply written only in Bangla script, Roman Bengali / Banglish (Bengali written in English letters, e.g. "amar ekta tutor lagbe") gets a reply written ONLY in Latin letters with no Bangla-script characters at all, in the same Roman Bengali style, for example "Post tab-e giye Guardian select koro, tarpor naam, mobile number, subject ar area likhe Submit chap dao" — do not answer in plain English when the visitor wrote Banglish. Never force English when the visitor wrote Bengali in either script, and never mix scripts in one reply.
-- Remember everything said earlier in this conversation and build on it — refer back to what the visitor already told you (their class, subject, area, whether they are a guardian or a tutor) instead of asking again.
-- Be organised: answer the question first, then add the one helpful next step. When something important is missing (e.g. which class, which area of Rangpur, home or online), ask ONE friendly follow-up question, the way a person would.
-- Keep most replies conversational (2–6 sentences). Use a short list only when it genuinely helps. Plain text, no markdown tables.
-
-What you know:
-- How the site works: the Board tab lists approved posts — guardians looking for tutors and tutors offering tuition. Anyone can post for free from the "Post" tab (choose guardian or tutor, fill name, mobile number, title, subjects, classes, area, salary); new posts appear after admin approval unless auto-approve is on. To contact a poster, tap Call on the card, or open the post and send an application with your name and mobile number. The heart button saves a post to Favourites. Posts can be reported from the detail view.
-- Subjects include Mathematics, Higher Mathematics, English, Bangla, Physics, Chemistry, Biology, General Science, ICT, Accounting, Finance, Economics, Arabic and more; classes run from Play–Nursery to Class 12 (HSC) and admission preparation. Areas cover all of Rangpur: Lalbag, Dhap, Shapla Chattar, Medical Mor, College Para, Kamalkachna, Mahiganj, Tajhat, Haragach, Mithapukur, Badarganj, Pirganj, Pirgachha, Kaunia, Gangachara, Taraganj — plus online anywhere.
-- Salary/fees are set by the poster on each post and are often negotiable; you may explain typical ranges only in general terms and always point to the salary shown on the specific post. Never promise a specific fee for a specific person.
-- Verification: a "Verified tutor" badge is given only by the admin after checking; you cannot verify, approve or reject anyone or any post.
-
-Hard limits:
-- NEVER ask for or handle money, payments, bKash/Nagad numbers, passwords or OTPs. If the visitor raises paying/sending money, refunds, fraud, or asks you to verify/approve them, do not decide — say the admin will handle it (the system escalates automatically).
-- If you don't know something specific (a particular post's phone number, whether a post is approved), say so honestly and warmly, and suggest checking the Board or waiting for the admin here.`;
+// Admin-taught Q&A for the chatbot: the pairs stored in settings
+// (key chat_training_qa, edited in the admin panel's "AI প্রশিক্ষণ"
+// section); the defaults in server/src/chatTraining.ts apply until the admin
+// saves their own pairs.
+async function loadTrainingQA(ctx: Ctx): Promise<TrainingQA[]> {
+  const stored = parseTrainingQA(await getSetting(ctx, CHAT_TRAINING_SETTING_KEY));
+  return stored.length > 0 ? stored : DEFAULT_TRAINING_QA;
+}
 
 async function generateAiReply(
   ctx: Ctx,
@@ -556,9 +564,10 @@ async function generateAiReply(
     .slice(-12)
     .map((m) => `${m.sender === "visitor" ? "Visitor" : m.sender === "ai" ? "Assistant" : "Admin"}: ${m.body}`)
     .join("\n");
+  const qa = await loadTrainingQA(ctx);
   const reply = await ctx.inference.complete(
     `Conversation so far:\n${transcript}\n\nWrite the assistant's next reply. The visitor's language preference is ${lang === "en" ? "English" : "Bangla"} — match the visitor's last message language if it differs.`,
-    { system: CHAT_SYSTEM_PROMPT, schema: z.string(), timeout_secs: 60 },
+    { system: CHAT_SYSTEM_PROMPT + formatTrainingQAForPrompt(qa), schema: z.string(), timeout_secs: 60 },
   );
   const text = reply.trim();
   return text.length > 0 ? text.slice(0, 2000) : chatFallback(lang);
@@ -2317,6 +2326,60 @@ export const Actions = {
         .update(schema.chatConversations)
         .set(patch)
         .where(eq(schema.chatConversations.id, args.conversationId));
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
+  // ---------------- Chatbot training (admin panel "AI প্রশিক্ষণ") ------
+  // Admin-taught question–answer pairs, stored as JSON in the settings
+  // table (key chat_training_qa). The AI reads them into its system
+  // prompt on every reply (see generateAiReply). Until the admin saves
+  // their own pairs, the defaults in server/src/chatTraining.ts apply
+  // (isDefault: true). Saving an empty list clears the setting back
+  // to the defaults; reset does the same.
+
+  adminChatTrainingList: defineAction({
+    privileged: ADMIN_PRIVILEGED,
+    description: "Admin: returns the chatbot's training question–answer pairs — the admin's saved pairs, or the defaults when none are saved.",
+    request: z.object({ passcode: z.string().min(1).max(60) }),
+    response: z.object({ qa: z.array(trainingQaShape), isDefault: z.boolean() }),
+    async handler(ctx, args) {
+      await checkPasscode(ctx, args.passcode);
+      const qa = await loadTrainingQA(ctx);
+      const stored = parseTrainingQA(await getSetting(ctx, CHAT_TRAINING_SETTING_KEY));
+      return { qa, isDefault: stored.length === 0 };
+    },
+  }),
+
+  adminChatTrainingSave: defineAction({
+    privileged: ADMIN_PRIVILEGED,
+    description: "Admin: saves the chatbot's training question–answer pairs (max 100). An empty list clears back to the defaults.",
+    request: z.object({
+      passcode: z.string().min(1).max(60),
+      qa: z.array(trainingQaShape).max(100),
+    }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      await checkPasscode(ctx, args.passcode);
+      await setSetting(
+        ctx,
+        CHAT_TRAINING_SETTING_KEY,
+        args.qa.length > 0 ? JSON.stringify(args.qa) : "",
+      );
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
+  adminChatTrainingReset: defineAction({
+    privileged: ADMIN_PRIVILEGED,
+    description: "Admin: clears the saved training pairs so the chatbot goes back to the default answers.",
+    request: z.object({ passcode: z.string().min(1).max(60) }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      await checkPasscode(ctx, args.passcode);
+      await setSetting(ctx, CHAT_TRAINING_SETTING_KEY, "");
       ctx.invalidateQueries();
       return { ok: true };
     },

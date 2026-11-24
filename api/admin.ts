@@ -5,8 +5,14 @@
 // Actions: verify, stats, listPosts, setPostStatus, setPostFlags,
 // updatePost, deletePost, listApplications, setApplicationStatus,
 // setCommission, deleteApplication, listReports, setReportStatus,
-// updateSettings, chatList, chatGet, chatReply, chatSetMode.
+// updateSettings, chatList, chatGet, chatReply, chatSetMode,
+// chatTrainingList, chatTrainingSave, chatTrainingReset.
 import { checkPasscode, ensureSchema, expectedPasscode, getDb, getSetting, setSetting } from "../lib/db.js";
+import {
+  CHAT_TRAINING_SETTING_KEY,
+  DEFAULT_TRAINING_QA,
+  parseTrainingQA,
+} from "../server/src/chatTraining.js";
 import { applicationCounts, badRequest, json, num, readBody, str, strList, toPost, validPhone } from "../lib/posts.js";
 import { listPosterGroups, toPosterGroup } from "../lib/poster.js";
 
@@ -407,6 +413,34 @@ export async function POST(req: Request): Promise<Response> {
               : "UPDATE chat_conversations SET mode = 'admin', updated_at = ? WHERE id = ?",
           args: [Date.now(), id],
         });
+        return json({ ok: true });
+      }
+
+      // -------- Chatbot training (admin panel "AI প্রশিক্ষণ") --------
+      // Admin-taught question–answer pairs, stored as JSON in the
+      // settings table (key chat_training_qa). api/chat.ts injects them
+      // into the AI's system prompt on every reply. Until the admin
+      // saves their own pairs, the defaults in server/src/chatTraining.ts
+      // apply (isDefault: true). Saving an empty list clears the
+      // setting back to the defaults; reset does the same.
+
+      case "chatTrainingList": {
+        const stored = parseTrainingQA(await getSetting(CHAT_TRAINING_SETTING_KEY));
+        const isDefault = stored.length === 0;
+        return json({ qa: isDefault ? DEFAULT_TRAINING_QA : stored, isDefault });
+      }
+
+      case "chatTrainingSave": {
+        const qa = parseTrainingQA(
+          typeof b.qa === "string" ? b.qa : JSON.stringify(b.qa ?? []),
+        );
+        if (qa.length > 100) return badRequest("একসাথে ১০০টির বেশি প্রশ্ন–উত্তর রাখা যাবে না");
+        await setSetting(CHAT_TRAINING_SETTING_KEY, qa.length > 0 ? JSON.stringify(qa) : "");
+        return json({ ok: true });
+      }
+
+      case "chatTrainingReset": {
+        await setSetting(CHAT_TRAINING_SETTING_KEY, "");
         return json({ ok: true });
       }
 

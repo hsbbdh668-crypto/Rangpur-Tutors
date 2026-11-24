@@ -699,6 +699,33 @@ export const restApi = {
     return post<{ ok: boolean }>("/api/admin", { action: "chatSetMode", ...args });
   },
 
+  // ---------------- Chatbot training (admin, POST /api/admin) ----------------
+  // Admin-taught question–answer pairs for the chatbot; the AI reads
+  // them into its system prompt on every reply. Defaults apply until
+  // the admin saves their own pairs.
+
+  adminChatTrainingList: async (args: {
+    passcode: string;
+  }): Promise<{ qa: { q: string; a: string }[]; isDefault: boolean }> => {
+    return post<{ qa: { q: string; a: string }[]; isDefault: boolean }>("/api/admin", {
+      action: "chatTrainingList",
+      ...args,
+    });
+  },
+
+  adminChatTrainingSave: async (args: {
+    passcode: string;
+    qa: { q: string; a: string }[];
+  }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/admin", { action: "chatTrainingSave", ...args });
+  },
+
+  adminChatTrainingReset: async (args: {
+    passcode: string;
+  }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/admin", { action: "chatTrainingReset", ...args });
+  },
+
   // ---------------- Tutor accounts (POST /api/tutors) ----------------
   // Guardians have no accounts — only tutors sign up / log in. The
   // session token is sent as the `x-tutor-token` header; store it in
