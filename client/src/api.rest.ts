@@ -240,6 +240,30 @@ export interface TutorMyApplications {
 /** localStorage key for the tutor session token (see api/tutors.ts). */
 export const TUTOR_TOKEN_KEY = "baraka_tutor_token";
 
+/** localStorage key for the poster session token (see api/posters.ts). */
+export const POSTER_TOKEN_KEY = "baraka_poster_token";
+
+/** One Facebook group on the /poster posting list. */
+export interface PosterGroup {
+  id: number;
+  name: string;
+  url: string;
+  done: boolean;
+  doneAt: string | null;
+  sortOrder: number;
+}
+
+export type PosterStatus = "pending" | "approved" | "rejected";
+
+/** A poster account — never includes password hash/salt. */
+export interface PosterProfile {
+  id: number;
+  name: string;
+  phone: string;
+  status: PosterStatus;
+  createdAt: string;
+}
+
 export interface BoardConfig {
   notice: string;
   autoApprove: boolean;
@@ -737,6 +761,138 @@ export const restApi = {
       method: "POST",
       headers: { "x-tutor-token": args.token },
       body: JSON.stringify({ action: "setApplicationStatus", ...args }),
+    });
+  },
+
+  // ---------------- Poster accounts + task (POST /api/posters, /api/poster) ----------------
+  // A poster signs up and CAN log in, but sees no task until an admin
+  // approves the account — posterGet returns 403 while status is
+  // 'pending'/'rejected', and the client shows "waiting for admin
+  // approval". The token is sent as the `x-poster-token` header;
+  // store it in localStorage under POSTER_TOKEN_KEY.
+
+  posterSignup: async (args: {
+    name: string;
+    phone: string;
+    password: string;
+  }): Promise<{ poster: PosterProfile; token: string }> => {
+    return post<{ poster: PosterProfile; token: string }>("/api/posters", {
+      action: "signup",
+      ...args,
+    });
+  },
+
+  posterLogin: async (args: {
+    phone: string;
+    password: string;
+  }): Promise<{ poster: PosterProfile; token: string }> => {
+    return post<{ poster: PosterProfile; token: string }>("/api/posters", {
+      action: "login",
+      ...args,
+    });
+  },
+
+  posterMe: async (args: { token: string }): Promise<{ poster: PosterProfile }> => {
+    return req<{ poster: PosterProfile }>("/api/posters", {
+      method: "POST",
+      headers: { "x-poster-token": args.token },
+      body: JSON.stringify({ action: "me" }),
+    });
+  },
+
+  posterGet: async (args: { token: string }): Promise<{
+    postText: string;
+    groups: PosterGroup[];
+    doneCount: number;
+    totalCount: number;
+  }> => {
+    return req<{ postText: string; groups: PosterGroup[]; doneCount: number; totalCount: number }>(
+      "/api/poster",
+      { headers: { "x-poster-token": args.token } },
+    );
+  },
+
+  posterComplete: async (args: {
+    token: string;
+    groupId: number;
+  }): Promise<{ ok: boolean; groups: PosterGroup[]; doneCount: number; totalCount: number }> => {
+    return req<{ ok: boolean; groups: PosterGroup[]; doneCount: number; totalCount: number }>(
+      "/api/poster/complete",
+      {
+        method: "POST",
+        headers: { "x-poster-token": args.token },
+        body: JSON.stringify({ groupId: args.groupId }),
+      },
+    );
+  },
+
+  // ---------------- Group posting (admin, POST /api/admin) ----------------
+
+  adminPosterList: async (args: {
+    passcode: string;
+  }): Promise<{ postText: string; groups: PosterGroup[] }> => {
+    return post<{ postText: string; groups: PosterGroup[] }>("/api/admin", {
+      action: "posterList",
+      ...args,
+    });
+  },
+
+  adminPosterSetText: async (args: {
+    passcode: string;
+    text: string;
+  }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/admin", { action: "posterSetText", ...args });
+  },
+
+  adminPosterAddGroup: async (args: {
+    passcode: string;
+    name: string;
+    url: string;
+  }): Promise<{ ok: boolean; id: number }> => {
+    return post<{ ok: boolean; id: number }>("/api/admin", {
+      action: "posterAddGroup",
+      ...args,
+    });
+  },
+
+  adminPosterDeleteGroup: async (args: {
+    passcode: string;
+    id: number;
+  }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/admin", { action: "posterDeleteGroup", ...args });
+  },
+
+  adminPosterReset: async (args: { passcode: string }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/admin", { action: "posterReset", ...args });
+  },
+
+  adminPosterListAccounts: async (args: {
+    passcode: string;
+  }): Promise<{ posters: PosterProfile[] }> => {
+    return post<{ posters: PosterProfile[] }>("/api/admin", {
+      action: "posterListAccounts",
+      ...args,
+    });
+  },
+
+  adminPosterSetAccountStatus: async (args: {
+    passcode: string;
+    id: number;
+    status: PosterStatus;
+  }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/admin", {
+      action: "posterSetAccountStatus",
+      ...args,
+    });
+  },
+
+  adminPosterDeleteAccount: async (args: {
+    passcode: string;
+    id: number;
+  }): Promise<{ ok: boolean }> => {
+    return post<{ ok: boolean }>("/api/admin", {
+      action: "posterDeleteAccount",
+      ...args,
     });
   },
 };

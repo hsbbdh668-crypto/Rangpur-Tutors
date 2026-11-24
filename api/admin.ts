@@ -8,6 +8,7 @@
 // updateSettings, chatList, chatGet, chatReply, chatSetMode.
 import { checkPasscode, ensureSchema, expectedPasscode, getDb, getSetting, setSetting } from "../lib/db.js";
 import { applicationCounts, badRequest, json, num, readBody, str, strList, toPost, validPhone } from "../lib/posts.js";
+import { listPosterGroups, toPosterGroup } from "../lib/poster.js";
 
 const UNAUTHORIZED = () => json({ error: "ভুল পাসকোড — আবার চেষ্টা করুন" }, 401);
 
@@ -406,6 +407,90 @@ export async function POST(req: Request): Promise<Response> {
               : "UPDATE chat_conversations SET mode = 'admin', updated_at = ? WHERE id = ?",
           args: [Date.now(), id],
         });
+        return json({ ok: true });
+      }
+
+      // -------- Facebook group posting (/poster) --------
+      // The group list + post text the admin manages; the poster only
+      // sees them after approval (see api/poster.ts). Demo groups/text
+      // are seeded once in lib/db.ts and can be edited/deleted here.
+
+      case "posterList": {
+        return json({
+          postText: await getSetting("poster_post_text"),
+          groups: (await listPosterGroups()).map(toPosterGroup),
+        });
+      }
+
+      case "posterSetText": {
+        const text = str(b.text).slice(0, 5000);
+        await setSetting("poster_post_text", text);
+        return json({ ok: true });
+      }
+
+      case "posterAddGroup": {
+        const name = str(b.name).trim();
+        const url = str(b.url).trim();
+        if (name.length < 1 || name.length > 120) return badRequest("গ্রুপের নাম লিখুন");
+        if (!/^https?:\/\/.{4,500}$/.test(url)) return badRequest("সঠিক গ্রুপের লিংক দিন");
+        const maxRow = await db.execute("SELECT MAX(sort_order) AS m FROM poster_groups");
+        const order = Number(maxRow.rows[0]?.m ?? 0) + 1;
+        const rs = await db.execute({
+          sql: "INSERT INTO poster_groups (name, url, done, done_at, sort_order, created_at) VALUES (?, ?, 0, NULL, ?, ?)",
+          args: [name, url, order, Date.now()],
+        });
+        return json({ ok: true, id: Number(rs.lastInsertRowid ?? 0) });
+      }
+
+      case "posterDeleteGroup": {
+        await db.execute({
+          sql: "DELETE FROM poster_groups WHERE id = ?",
+          args: [num(b.id) ?? Number(b.id)],
+        });
+        return json({ ok: true });
+      }
+
+      case "posterReset": {
+        await db.execute("UPDATE poster_groups SET done = 0, done_at = NULL");
+        return json({ ok: true });
+      }
+
+      case "posterListAccounts": {
+        const rs = await db.execute(
+          "SELECT id, name, phone, status, created_at FROM posters ORDER BY created_at DESC",
+        );
+        return json({
+          posters: rs.rows.map((r) => ({
+            id: Number(r.id),
+            name: String(r.name ?? ""),
+            phone: String(r.phone ?? ""),
+            status: String(r.status ?? "pending"),
+            createdAt: new Date(Number(r.created_at ?? Date.now())).toISOString(),
+          })),
+        });
+      }
+
+      case "posterSetAccountStatus": {
+        const status = str(b.status);
+        if (!["pending", "approved", "rejected"].includes(status)) {
+          return badRequest("স্ট্যাটাস ঠিক নেই");
+        }
+        await db.execute({
+          sql: "UPDATE posters SET status = ?, updated_at = ? WHERE id = ?",
+          args: [status, Date.now(), num(b.id) ?? Number(b.id)],
+        });
+        return json({ ok: true });
+      }
+
+      case "posterDeleteAccount": {
+        const id = num(b.id) ?? Number(b.id);
+        await db.batch(
+          [
+            { sql: "DELETE FROM poster_sessions WHERE poster_id = ?", args: [id] },
+            { sql: "DELETE FROM posters WHERE id = ?", args: [id] },
+          ],
+          "write",
+        );
         return json({ ok: true });
       }
 

@@ -143,6 +143,37 @@ export function ensureSchema(): Promise<void> {
             expires_at INTEGER NOT NULL,
             created_at INTEGER NOT NULL
           )`,
+          `CREATE TABLE IF NOT EXISTS poster_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            url TEXT NOT NULL,
+            done INTEGER NOT NULL DEFAULT 0,
+            done_at INTEGER,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+          )`,
+          // Poster accounts (Facebook group posting, /poster): the poster
+          // signs up with their own name/phone/password; status starts
+          // 'pending' and only an admin approval makes the tasks visible
+          // (see api/posters.ts + api/poster.ts). No login is possible
+          // without approval being reflected in the task view.
+          `CREATE TABLE IF NOT EXISTS posters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            password_salt TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )`,
+          `CREATE TABLE IF NOT EXISTS poster_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT NOT NULL UNIQUE,
+            poster_id INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL
+          )`,
         ],
         "write",
       );
@@ -150,6 +181,54 @@ export function ensureSchema(): Promise<void> {
       // no ALTER backfill is needed (the old loop always failed on a
       // live DB where the columns exist — two wasted round trips per
       // cold start).
+
+      // One-time demo seed for the /poster group-posting flow (Jubayar,
+      // 2026-11-24): 3 clearly-marked demo groups + a demo post text,
+      // so the copy+open flow can be tested end to end. Guarded by the
+      // poster_demo_seeded flag: once seeded, deleting the demo groups
+      // or the demo text in the admin panel never re-seeds them, and
+      // real groups/text added later are never touched. Raw SQL only
+      // here — getSetting/setSetting call ensureSchema (deadlock).
+      const seeded = await db.execute({
+        sql: "SELECT value FROM settings WHERE key = 'poster_demo_seeded' LIMIT 1",
+      });
+      if (!seeded.rows[0]) {
+        const count = await db.execute("SELECT COUNT(*) AS c FROM poster_groups");
+        const now = Date.now();
+        if (Number(count.rows[0]?.c ?? 0) === 0) {
+          await db.batch(
+            [
+              {
+                sql: "INSERT INTO poster_groups (name, url, done, done_at, sort_order, created_at) VALUES (?, ?, 0, NULL, 1, ?)",
+                args: ["ডেমো গ্রুপ ১ (রংপুর টিউশন)", "https://www.facebook.com/groups/rangpur-tuition-demo-1", now],
+              },
+              {
+                sql: "INSERT INTO poster_groups (name, url, done, done_at, sort_order, created_at) VALUES (?, ?, 0, NULL, 2, ?)",
+                args: ["ডেমো গ্রুপ ২ (রংপুর টিউশন)", "https://www.facebook.com/groups/rangpur-tuition-demo-2", now],
+              },
+              {
+                sql: "INSERT INTO poster_groups (name, url, done, done_at, sort_order, created_at) VALUES (?, ?, 0, NULL, 3, ?)",
+                args: ["ডেমো গ্রুপ ৩ (রংপুর টিউশন)", "https://www.facebook.com/groups/rangpur-tuition-demo-3", now],
+              },
+            ],
+            "write",
+          );
+        }
+        const textRow = await db.execute({
+          sql: "SELECT value FROM settings WHERE key = 'poster_post_text' LIMIT 1",
+        });
+        if (!textRow.rows[0] || !String(textRow.rows[0].value ?? "").trim()) {
+          await db.execute({
+            sql: "INSERT INTO settings (key, value) VALUES ('poster_post_text', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            args: [
+              "[ডেমো পোস্ট — শুধু টেস্ট করার জন্য]\nরংপুরে হোম টিউটর খুঁজছেন? Baraka Tutors-এ গার্ডিয়ানরা ফ্রিতে টিউশন পোস্ট দিতে পারেন, আর টিউটররা নিজেদের অফার দিতে পারেন।\nদেখুন: https://barakatutors.vercel.app",
+            ],
+          });
+        }
+        await db.execute({
+          sql: "INSERT INTO settings (key, value) VALUES ('poster_demo_seeded', '1') ON CONFLICT(key) DO UPDATE SET value = '1'",
+        });
+      }
     })();
   }
   return schemaReady;

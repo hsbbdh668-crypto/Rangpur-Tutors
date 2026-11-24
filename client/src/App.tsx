@@ -45,7 +45,13 @@ import {
   type FaqEntry,
   type SeoArea,
 } from "./seo";
-import { TUTOR_TOKEN_KEY, type CommissionStatus } from "./api.rest";
+import {
+  POSTER_TOKEN_KEY,
+  TUTOR_TOKEN_KEY,
+  type CommissionStatus,
+  type PosterGroup,
+  type PosterProfile,
+} from "./api.rest";
 import barakaLogo from "./assets/baraka-logo.webp";
 import {
   IconAlert,
@@ -94,7 +100,7 @@ type ChatMessage = ApiResponse<typeof api, "chatPoll">["messages"][number];
 type TutorProfile = ApiResponse<typeof api, "tutorMe">["tutor"];
 type TutorMyApplications = ApiResponse<typeof api, "tutorMyApplications">;
 
-type View = "home" | "board" | "post" | "favorites" | "admin" | "about" | "trust" | "legal" | "signup" | "login" | "dashboard" | "area" | "fees";
+type View = "home" | "board" | "post" | "favorites" | "about" | "trust" | "legal" | "signup" | "login" | "dashboard" | "area" | "fees";
 type KindFilter = "all" | "guardian" | "tutor";
 
 /* University cards on the landing page filter the board by institution.
@@ -2752,6 +2758,648 @@ function CommissionEditor({
   );
 }
 
+/* ---------------- Facebook group posting (/poster) ----------------
+   Standalone route like /admin: renders ONLY this panel, no public
+   header/board/footer/chat. The poster signs up with their own
+   name/phone/password and CAN log in, but sees NO task until an admin
+   approves the account — until then they only see the waiting message.
+   Approved posters see the groups one at a time; one click on Open
+   copies the post text AND opens the group's Facebook URL, then
+   "পোস্ট হয়েছে" marks that group done and shows the next one. */
+
+function PosterPanel() {
+  const { lang, t, setLang } = useLang();
+  const queryClient = useQueryClient();
+  const [token, setToken] = useState(() => localStorage.getItem(POSTER_TOKEN_KEY) ?? "");
+  const [poster, setPoster] = useState<PosterProfile | null>(null);
+  const [statusTick, setStatusTick] = useState(0);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [taskError, setTaskError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+
+  // Restore the session from the saved token (and re-check the approval
+  // status when the poster taps "check status again").
+  useEffect(() => {
+    if (!token) {
+      setPoster(null);
+      return;
+    }
+    let alive = true;
+    api
+      .posterMe({ token })
+      .then((res) => {
+        if (alive) setPoster(res.poster);
+      })
+      .catch(() => {
+        if (!alive) return;
+        localStorage.removeItem(POSTER_TOKEN_KEY);
+        setToken("");
+        setPoster(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [token, statusTick]);
+
+  const taskQuery = useQuery({
+    queryKey: ["posterTask", token],
+    queryFn: async () => await api.posterGet({ token }),
+    enabled: !!token && poster?.status === "approved",
+    retry: false,
+  });
+
+  const authMutation = useMutation({
+    mutationFn: async () =>
+      authMode === "login"
+        ? await api.posterLogin({ phone, password })
+        : await api.posterSignup({ name, phone, password }),
+    onSuccess: (res) => {
+      localStorage.setItem(POSTER_TOKEN_KEY, res.token);
+      setToken(res.token);
+      setPoster(res.poster);
+      setAuthError("");
+      setName("");
+      setPassword("");
+    },
+    onError: (e) => setAuthError(e instanceof Error ? e.message : t("failedShort")),
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: async (groupId: number) => await api.posterComplete({ token, groupId }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["posterTask"] });
+      setTaskError("");
+    },
+    onError: (e) => setTaskError(e instanceof Error ? e.message : t("failedShort")),
+  });
+
+  const logout = () => {
+    localStorage.removeItem(POSTER_TOKEN_KEY);
+    setToken("");
+    setPoster(null);
+    setCopied(false);
+    setCopyFailed(false);
+  };
+
+  const task = taskQuery.data;
+  const current = task?.groups.find((g) => !g.done) ?? null;
+  const allDone = !!task && task.totalCount > 0 && task.doneCount >= task.totalCount;
+
+  // One click does BOTH: window.open FIRST (synchronously, so popup
+  // blockers let it through), then the clipboard copy.
+  const openGroup = async (g: PosterGroup) => {
+    window.open(g.url, "_blank", "noopener,noreferrer");
+    setCopied(false);
+    setCopyFailed(false);
+    if (!task?.postText) return;
+    try {
+      await navigator.clipboard.writeText(task.postText);
+      setCopied(true);
+    } catch {
+      setCopyFailed(true);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <img src={barakaLogo} alt="Baraka Tutors" className="h-9 w-9 rounded-xl object-cover" />
+          <div>
+            <h1 className="text-lg font-bold leading-tight text-[var(--text)]">{t("posterTitle")}</h1>
+            <p className="text-xs text-[var(--dim)]">{t("posterTitleSub")}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setLang(lang === "bn" ? "en" : "bn")}
+          className="rounded-full border border-[var(--border)] px-3 py-1.5 text-sm font-semibold text-[var(--dim)]"
+        >
+          {lang === "bn" ? "English" : "বাংলা"}
+        </button>
+      </div>
+
+      {!poster ? (
+        <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+          <h2 className="mb-1 text-base font-bold text-[var(--text)]">
+            {authMode === "login" ? t("posterLoginTitle") : t("posterSignupTitle")}
+          </h2>
+          {authMode === "signup" ? (
+            <p className="mb-3 text-sm text-[var(--dim)]">{t("posterSignupHint")}</p>
+          ) : null}
+          {authMode === "signup" ? (
+            <label className="mb-3 block">
+              <span className="mb-1 block text-sm font-semibold text-[var(--text)]">{t("posterNameLabel")}</span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)]"
+              />
+            </label>
+          ) : null}
+          <label className="mb-3 block">
+            <span className="mb-1 block text-sm font-semibold text-[var(--text)]">{t("posterPhoneLabel")}</span>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              inputMode="tel"
+              placeholder="01XXXXXXXXX"
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)]"
+            />
+          </label>
+          <label className="mb-3 block">
+            <span className="mb-1 block text-sm font-semibold text-[var(--text)]">{t("posterPasswordLabel")}</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)]"
+            />
+          </label>
+          {authError ? <p className="mb-3 text-sm text-[var(--danger)]">{authError}</p> : null}
+          <button
+            type="button"
+            disabled={authMutation.isPending}
+            onClick={() => authMutation.mutate()}
+            className="w-full rounded-xl bg-[var(--accent)] px-4 py-2.5 font-bold text-white disabled:opacity-60"
+          >
+            {authMode === "login" ? t("posterLoginBtn") : t("posterSignupBtn")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode(authMode === "login" ? "signup" : "login");
+              setAuthError("");
+            }}
+            className="mt-2 w-full rounded-xl px-4 py-2 text-sm font-semibold text-[var(--accent-strong)]"
+          >
+            {authMode === "login" ? t("posterToSignup") : t("posterToLogin")}
+          </button>
+        </div>
+      ) : poster.status !== "approved" ? (
+        <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
+          <IconClock className="mx-auto mb-2 h-10 w-10 text-[var(--accent-strong)]" />
+          <h2 className="mb-1 text-base font-bold text-[var(--text)]">
+            {poster.status === "rejected" ? t("posterRejectedTitle") : t("posterWaitingTitle")}
+          </h2>
+          <p className="mb-1 text-sm text-[var(--dim)]">
+            {poster.status === "rejected" ? t("posterRejectedBody") : t("posterWaitingBody")}
+          </p>
+          <p className="mb-3 text-sm font-semibold text-[var(--text)]">{poster.name} · {poster.phone}</p>
+          {poster.status === "pending" ? (
+            <button
+              type="button"
+              onClick={() => setStatusTick((n) => n + 1)}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 font-bold text-white"
+            >
+              {t("posterCheckStatusBtn")}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={logout}
+            className="ml-2 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--dim)]"
+          >
+            {t("posterLogoutBtn")}
+          </button>
+        </div>
+      ) : taskQuery.isPending ? (
+        <p className="py-10 text-center text-[var(--dim)]">{t("loadingShort")}</p>
+      ) : taskQuery.isError ? (
+        <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 text-center">
+          <p className="mb-3 text-sm text-[var(--danger)]">
+            {taskQuery.error instanceof Error ? taskQuery.error.message : t("failedShort")}
+          </p>
+          <button
+            type="button"
+            onClick={logout}
+            className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--dim)]"
+          >
+            {t("posterLogoutBtn")}
+          </button>
+        </div>
+      ) : task ? (
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-[var(--text)]">
+              {t("posterProgress", { done: String(task.doneCount), total: String(task.totalCount) })}
+            </p>
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--dim)]"
+            >
+              {t("posterLogoutBtn")}
+            </button>
+          </div>
+
+          <div className="mb-4 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+            <h2 className="mb-1 text-sm font-bold text-[var(--text)]">{t("posterHowTitle")}</h2>
+            <p className="text-sm text-[var(--dim)]">{t("posterHowBody")}</p>
+          </div>
+
+          {task.postText ? (
+            <div className="mb-4 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-bold text-[var(--text)]">{t("posterPostTextLabel")}</h2>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(task.postText);
+                      setCopied(true);
+                      setCopyFailed(false);
+                    } catch {
+                      setCopyFailed(true);
+                    }
+                  }}
+                  className="rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]"
+                >
+                  {t("posterCopyTextBtn")}
+                </button>
+              </div>
+              <p className="whitespace-pre-wrap text-sm text-[var(--text)]">{task.postText}</p>
+              {copied ? <p className="mt-2 text-sm font-semibold text-[var(--accent-strong)]">{t("posterCopiedMsg")}</p> : null}
+              {copyFailed ? <p className="mt-2 text-sm text-[var(--danger)]">{t("posterCopyFailMsg")}</p> : null}
+            </div>
+          ) : (
+            <p className="mb-4 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--dim)]">
+              {t("posterNoTextBody")}
+            </p>
+          )}
+
+          {allDone ? (
+            <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
+              <IconCheckCircle className="mx-auto mb-2 h-10 w-10 text-[var(--accent-strong)]" />
+              <h2 className="mb-1 text-lg font-bold text-[var(--text)]">{t("posterAllDoneTitle")}</h2>
+              <p className="text-sm text-[var(--dim)]">{t("posterAllDoneBody")}</p>
+            </div>
+          ) : current ? (
+            <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-base font-bold text-[var(--text)]">{current.name}</h2>
+                <span className="rounded-full bg-[var(--surface-2)] px-2.5 py-0.5 text-xs font-semibold text-[var(--dim)]">
+                  {t("posterGroupPendingChip")}
+                </span>
+              </div>
+              <p className="mb-3 break-all text-xs text-[var(--dim)]">{current.url}</p>
+              <button
+                type="button"
+                onClick={() => void openGroup(current)}
+                className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 font-bold text-white"
+              >
+                <IconExternal className="h-5 w-5" /> {t("posterOpenBtn")}
+              </button>
+              <button
+                type="button"
+                disabled={completeMutation.isPending}
+                onClick={() => completeMutation.mutate(current.id)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--accent)] px-4 py-3 font-bold text-[var(--accent-strong)] disabled:opacity-60"
+              >
+                <IconCheck className="h-5 w-5" /> {t("posterDoneBtn")}
+              </button>
+              {taskError ? <p className="mt-2 text-sm text-[var(--danger)]">{taskError}</p> : null}
+            </div>
+          ) : (
+            <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
+              <h2 className="mb-1 text-base font-bold text-[var(--text)]">{t("posterNoGroupsTitle")}</h2>
+              <p className="text-sm text-[var(--dim)]">{t("posterNoGroupsBody")}</p>
+            </div>
+          )}
+
+          {task.groups.length > 0 ? (
+            <div className="mt-4 space-y-2">
+              {task.groups.map((g) => (
+                <div
+                  key={g.id}
+                  className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+                >
+                  <span className="truncate text-sm font-semibold text-[var(--text)]">{g.name}</span>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      g.done ? "bg-[var(--surface-2)] text-[var(--accent-strong)]" : "bg-[var(--surface-2)] text-[var(--dim)]"
+                    }`}
+                  >
+                    {g.done ? t("posterGroupDoneChip") : t("posterGroupPendingChip")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* Admin side of group posting: post text, group list, progress reset
+   and poster-account approval — inside the passcode-protected admin
+   panel only. The poster page link is shown here so the admin can
+   share it with the poster; it appears nowhere on the public site. */
+
+function AdminPoster({ passcode }: { passcode: string }) {
+  const { lang, t } = useLang();
+  const num = (n: number | string) => fmtNum(n, lang);
+  const queryClient = useQueryClient();
+  const [text, setText] = useState("");
+  const [textSaved, setTextSaved] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupUrl, setGroupUrl] = useState("");
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmDeleteGroupId, setConfirmDeleteGroupId] = useState<number | null>(null);
+  const [confirmDeleteAccountId, setConfirmDeleteAccountId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const textInit = useRef(false);
+
+  const listQuery = useQuery({
+    queryKey: ["adminPosterList", passcode],
+    queryFn: async () => await api.adminPosterList({ passcode }),
+  });
+  const accountsQuery = useQuery({
+    queryKey: ["adminPosterAccounts", passcode],
+    queryFn: async () => await api.adminPosterListAccounts({ passcode }),
+  });
+
+  useEffect(() => {
+    if (listQuery.data && !textInit.current) {
+      setText(listQuery.data.postText);
+      textInit.current = true;
+    }
+  }, [listQuery.data]);
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ["adminPosterList"] });
+    void queryClient.invalidateQueries({ queryKey: ["adminPosterAccounts"] });
+  };
+
+  const saveTextMutation = useMutation({
+    mutationFn: async () => await api.adminPosterSetText({ passcode, text }),
+    onSuccess: () => {
+      setTextSaved(true);
+      setError("");
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : t("failedShort")),
+  });
+  const addGroupMutation = useMutation({
+    mutationFn: async () => await api.adminPosterAddGroup({ passcode, name: groupName, url: groupUrl }),
+    onSuccess: () => {
+      setGroupName("");
+      setGroupUrl("");
+      setError("");
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : t("failedShort")),
+  });
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (id: number) => await api.adminPosterDeleteGroup({ passcode, id }),
+    onSuccess: () => {
+      setConfirmDeleteGroupId(null);
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : t("failedShort")),
+  });
+  const resetMutation = useMutation({
+    mutationFn: async () => await api.adminPosterReset({ passcode }),
+    onSuccess: () => {
+      setConfirmReset(false);
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : t("failedShort")),
+  });
+  const setStatusMutation = useMutation({
+    mutationFn: async (args: { id: number; status: PosterProfile["status"] }) =>
+      await api.adminPosterSetAccountStatus({ passcode, ...args }),
+    onSuccess: invalidate,
+    onError: (e) => setError(e instanceof Error ? e.message : t("failedShort")),
+  });
+  const deleteAccountMutation = useMutation({
+    mutationFn: async (id: number) => await api.adminPosterDeleteAccount({ passcode, id }),
+    onSuccess: () => {
+      setConfirmDeleteAccountId(null);
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : t("failedShort")),
+  });
+
+  const groups = listQuery.data?.groups ?? [];
+  const doneCount = groups.filter((g) => g.done).length;
+  const posterUrl = `${window.location.origin}/poster`;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <h3 className="mb-1 text-base font-bold text-[var(--text)]">{t("posterLinkLabel")}</h3>
+        <p className="mb-2 break-all text-sm font-semibold text-[var(--accent-strong)]">{posterUrl}</p>
+        <p className="text-xs text-[var(--dim)]">{t("posterLinkHint")}</p>
+      </div>
+
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <label className="mb-1 block text-sm font-bold text-[var(--text)]" htmlFor="poster-post-text">
+          {t("posterAdminTextLabel")}
+        </label>
+        <p className="mb-2 text-xs text-[var(--dim)]">{t("posterAdminTextHint")}</p>
+        <textarea
+          id="poster-post-text"
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            setTextSaved(false);
+          }}
+          rows={5}
+          placeholder={t("posterAdminTextPh")}
+          className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]"
+        />
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={saveTextMutation.isPending}
+            onClick={() => saveTextMutation.mutate()}
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {t("posterSaveTextBtn")}
+          </button>
+          {textSaved ? <span className="text-sm font-semibold text-[var(--accent-strong)]">{t("posterSavedMsg")}</span> : null}
+        </div>
+      </div>
+
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-bold text-[var(--text)]">
+            {t("posterAdminGroupsTitle")} · {num(doneCount)} / {num(groups.length)}
+          </h3>
+          {groups.length > 0 ? (
+            confirmReset ? (
+              <button
+                type="button"
+                onClick={() => resetMutation.mutate()}
+                className="rounded-full bg-[var(--danger)] px-3 py-1.5 text-xs font-bold text-white"
+              >
+                {t("posterResetConfirmBtn")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmReset(true)}
+                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--dim)]"
+              >
+                {t("posterResetBtn")}
+              </button>
+            )
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          {groups.map((g) => (
+            <div
+              key={g.id}
+              className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[var(--text)]">{g.name}</p>
+                <p className="truncate text-xs text-[var(--dim)]">{g.url}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    g.done ? "bg-[var(--surface-2)] text-[var(--accent-strong)]" : "bg-[var(--surface-2)] text-[var(--dim)]"
+                  }`}
+                >
+                  {g.done ? t("posterGroupDoneChip") : t("posterGroupPendingChip")}
+                </span>
+                {confirmDeleteGroupId === g.id ? (
+                  <button
+                    type="button"
+                    onClick={() => deleteGroupMutation.mutate(g.id)}
+                    className="rounded-full bg-[var(--danger)] px-3 py-1 text-xs font-bold text-white"
+                  >
+                    {t("confirmDeleteBtn")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={t("deleteBtn")}
+                    onClick={() => setConfirmDeleteGroupId(g.id)}
+                    className="rounded-full border border-[var(--border)] p-1.5 text-[var(--dim)]"
+                  >
+                    <IconTrash className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {groups.length === 0 ? (
+            <p className="text-sm text-[var(--dim)]">{t("posterNoGroupsTitle")}</p>
+          ) : null}
+        </div>
+        <div className="mt-4 border-t border-[var(--border)] pt-3">
+          <h4 className="mb-2 text-sm font-bold text-[var(--text)]">{t("posterAddGroupTitle")}</h4>
+          <input
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            placeholder={t("posterGroupNameLabel")}
+            className="mb-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]"
+          />
+          <input
+            value={groupUrl}
+            onChange={(e) => setGroupUrl(e.target.value)}
+            placeholder={t("posterGroupUrlLabel")}
+            inputMode="url"
+            className="mb-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]"
+          />
+          <button
+            type="button"
+            disabled={addGroupMutation.isPending || !groupName.trim() || !groupUrl.trim()}
+            onClick={() => addGroupMutation.mutate()}
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {t("posterAddGroupBtn")}
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <h3 className="mb-2 text-base font-bold text-[var(--text)]">{t("posterAccountsTitle")}</h3>
+        {accountsQuery.data && accountsQuery.data.posters.length === 0 ? (
+          <p className="text-sm text-[var(--dim)]">{t("posterAccountsEmpty")}</p>
+        ) : null}
+        <div className="space-y-2">
+          {(accountsQuery.data?.posters ?? []).map((p) => (
+            <div
+              key={p.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[var(--text)]">{p.name}</p>
+                <p className="text-xs text-[var(--dim)]">{p.phone}</p>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    p.status === "approved"
+                      ? "bg-[var(--surface-2)] text-[var(--accent-strong)]"
+                      : p.status === "rejected"
+                        ? "bg-[var(--surface-2)] text-[var(--danger)]"
+                        : "bg-[var(--surface-2)] text-[var(--dim)]"
+                  }`}
+                >
+                  {p.status === "approved"
+                    ? t("posterStatusApproved")
+                    : p.status === "rejected"
+                      ? t("posterStatusRejected")
+                      : t("posterStatusPending")}
+                </span>
+                {p.status !== "approved" ? (
+                  <button
+                    type="button"
+                    onClick={() => setStatusMutation.mutate({ id: p.id, status: "approved" })}
+                    className="rounded-full bg-[var(--accent)] px-3 py-1 text-xs font-bold text-white"
+                  >
+                    {t("posterApproveBtn")}
+                  </button>
+                ) : null}
+                {p.status !== "rejected" ? (
+                  <button
+                    type="button"
+                    onClick={() => setStatusMutation.mutate({ id: p.id, status: "rejected" })}
+                    className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--dim)]"
+                  >
+                    {t("posterRejectBtn")}
+                  </button>
+                ) : null}
+                {confirmDeleteAccountId === p.id ? (
+                  <button
+                    type="button"
+                    onClick={() => deleteAccountMutation.mutate(p.id)}
+                    className="rounded-full bg-[var(--danger)] px-3 py-1 text-xs font-bold text-white"
+                  >
+                    {t("confirmDeleteBtn")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={t("deleteBtn")}
+                    onClick={() => setConfirmDeleteAccountId(p.id)}
+                    className="rounded-full border border-[var(--border)] p-1.5 text-[var(--dim)]"
+                  >
+                    <IconTrash className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+    </div>
+  );
+}
+
 /* ---------------- admin ---------------- */
 
 function StatBox({ label, value, alert }: { label: string; value: number; alert?: boolean }) {
@@ -2773,7 +3421,7 @@ function AdminPanel() {
   const [passcode, setPasscode] = useState(() => sessionStorage.getItem("rt-admin") ?? "");
   const [entered, setEntered] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [section, setSection] = useState<"posts" | "applications" | "reports" | "chats" | "settings">("posts");
+  const [section, setSection] = useState<"posts" | "applications" | "reports" | "chats" | "settings" | "poster">("posts");
   const [statusFilter, setStatusFilter] = useState<"" | Post["status"]>("pending");
   const [kindFilter, setKindFilter] = useState<"" | "guardian" | "tutor">("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -2941,6 +3589,7 @@ function AdminPanel() {
       label: t("tabChats") + (chatsNeedingAdmin ? t("tabChatsSuffix", { n: num(chatsNeedingAdmin) }) : ""),
     },
     { v: "settings" as const, icon: <IconSettings className="mr-1 inline h-4 w-4 align-[-2px]" />, label: t("tabSettings") },
+    { v: "poster" as const, icon: <IconMegaphone className="mr-1 inline h-4 w-4 align-[-2px]" />, label: t("tabPoster") },
   ];
 
   return (
@@ -3304,6 +3953,7 @@ function AdminPanel() {
       ) : null}
 
       {section === "chats" ? <AdminChats passcode={passcode} /> : null}
+      {section === "poster" ? <AdminPoster passcode={passcode} /> : null}
 
       {section === "settings" ? (
         <AdminSettings
@@ -5230,6 +5880,11 @@ export function App() {
       applyJsonLd(null);
       return;
     }
+    if (path === "/poster" || path.startsWith("/poster/")) {
+      applySeo({ title: "Poster — Baraka Tutors", description: HOME_DESC[lang], path: "/poster" });
+      applyJsonLd(null);
+      return;
+    }
     if (selected) {
       applySeo({
         title: postSeoTitle(selected, lang),
@@ -5288,7 +5943,9 @@ export function App() {
 
   // Separate admin area: /admin renders ONLY the admin panel — no public
   // header, board, post form, footer or chat widget. The passcode flow is
-  // unchanged (AdminPanel asks for it first, same as the in-app admin tab).
+  // unchanged (AdminPanel asks for it first). There is no link, button,
+  // tab or mention of /admin anywhere on the public site — it is
+  // reachable only by direct URL.
   const isAdminRoute =
     window.location.pathname === "/admin" ||
     window.location.pathname.startsWith("/admin/");
@@ -5297,6 +5954,22 @@ export function App() {
       <div className="min-h-screen bg-[var(--bg)] pb-24 text-[var(--text)]">
         <main className="mx-auto max-w-4xl px-4 pt-6">
           <AdminPanel />
+        </main>
+      </div>
+    );
+  }
+
+  // Separate poster area: /poster renders ONLY the PosterPanel — no
+  // public site around it, and no link, button, tab or mention of
+  // /poster anywhere on the public site. Reachable only by direct URL.
+  const isPosterRoute =
+    window.location.pathname === "/poster" ||
+    window.location.pathname.startsWith("/poster/");
+  if (isPosterRoute) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] pb-24 text-[var(--text)]">
+        <main className="mx-auto max-w-4xl px-4 pt-6">
+          <PosterPanel />
         </main>
       </div>
     );
@@ -5455,13 +6128,6 @@ export function App() {
               >
                 <IconHeart className="h-4 w-4" /> {t("navFavorites")}
               </button>
-              <button
-                type="button"
-                onClick={() => goView("admin")}
-                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white"
-              >
-                <IconWrench className="h-4 w-4" /> {t("navAdmin")}
-              </button>
             </nav>
           ) : null}
         </div>
@@ -5533,11 +6199,6 @@ export function App() {
         {view === "favorites" ? (
           <div className="mx-auto max-w-4xl">
             <Favorites onOpen={openPost} />
-          </div>
-        ) : null}
-        {view === "admin" ? (
-          <div className="mx-auto max-w-4xl">
-            <AdminPanel />
           </div>
         ) : null}
         {view === "about" ? <AboutView /> : null}

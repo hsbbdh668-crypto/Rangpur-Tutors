@@ -183,6 +183,56 @@ function toTutorProfile(row: TutorRow): z.infer<typeof tutorProfileShape> {
   };
 }
 
+/* ---------------- poster accounts (Facebook group posting, /poster) ----------------
+   Same account shape as tutors, with an approval gate instead of a
+   verified flag: status starts 'pending'; only 'approved' posters see
+   the posting task. A poster CAN log in while pending — inside they see
+   only "waiting for admin approval" until the admin approves them. */
+
+const posterStatusEnum = z.enum(["pending", "approved", "rejected"]);
+
+const posterProfileShape = z.object({
+  id: z.number(),
+  name: z.string(),
+  phone: z.string(),
+  status: posterStatusEnum,
+  createdAt: z.string(),
+});
+
+const posterGroupShape = z.object({
+  id: z.number(),
+  name: z.string(),
+  url: z.string(),
+  done: z.boolean(),
+  doneAt: z.string().nullable(),
+  sortOrder: z.number(),
+});
+
+type PosterRow = typeof schema.posters.$inferSelect;
+
+function toPosterProfile(row: PosterRow): z.infer<typeof posterProfileShape> {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toPosterGroup(
+  row: typeof schema.posterGroups.$inferSelect,
+): z.infer<typeof posterGroupShape> {
+  return {
+    id: row.id,
+    name: row.name,
+    url: row.url,
+    done: row.done === 1,
+    doneAt: row.doneAt ? row.doneAt.toISOString() : null,
+    sortOrder: row.sortOrder,
+  };
+}
+
 /** scrypt password hashing via the privileged host handler
     (64-byte key, 16-byte random salt, hex-encoded — unchanged scheme). */
 async function hashPassword(
@@ -218,6 +268,67 @@ async function createTutorSession(ctx: Ctx, tutorId: number): Promise<string> {
     expiresAt: new Date(Date.now() + TUTOR_SESSION_TTL_MS),
   });
   return token;
+}
+
+/** Poster login tokens live 30 days (same shape as tutor sessions). */
+const POSTER_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+async function createPosterSession(ctx: Ctx, posterId: number): Promise<string> {
+  const db = ctx.db<typeof schema>();
+  const { token } = await ctx.executePrivileged(Privileged.randomToken, { bytes: 32 });
+  await db.insert(schema.posterSessions).values({
+    token,
+    posterId,
+    expiresAt: new Date(Date.now() + POSTER_SESSION_TTL_MS),
+  });
+  return token;
+}
+
+async function resolvePoster(ctx: Ctx, token: string): Promise<PosterRow | null> {
+  const db = ctx.db<typeof schema>();
+  const sessions = await db
+    .select()
+    .from(schema.posterSessions)
+    .where(eq(schema.posterSessions.token, token))
+    .limit(1);
+  const session = sessions[0];
+  if (!session) return null;
+  if (session.expiresAt.getTime() <= Date.now()) {
+    await db.delete(schema.posterSessions).where(eq(schema.posterSessions.id, session.id));
+    return null;
+  }
+  const rows = await db
+    .select()
+    .from(schema.posters)
+    .where(eq(schema.posters.id, session.posterId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+async function listPosterGroups(ctx: Ctx): Promise<z.infer<typeof posterGroupShape>[]> {
+  const db = ctx.db<typeof schema>();
+  const rows = await db
+    .select()
+    .from(schema.posterGroups)
+    .orderBy(schema.posterGroups.sortOrder, schema.posterGroups.id);
+  return rows.map(toPosterGroup);
+}
+
+/** Loads the posting task for an approved poster; throws when the
+    poster is still waiting for approval (or was rejected). */
+async function approvedPosterTask(ctx: Ctx, token: string) {
+  const poster = await resolvePoster(ctx, token);
+  if (!poster) throw new Error("সেশন শেষ হয়ে গেছে — আবার লগইন করুন");
+  if (poster.status !== "approved") {
+    throw new Error("অ্যাডমিন এখনো অ্যাপ্রুভ করেনি — অনুমোদনের পর গ্রুপ লিস্ট দেখতে পারবেন");
+  }
+  const groups = await listPosterGroups(ctx);
+  return {
+    postText: await getSetting(ctx, "poster_post_text"),
+    groups,
+    doneCount: groups.filter((g) => g.done).length,
+    totalCount: groups.length,
+  };
 }
 
 /** Masks a phone number for tutor-facing views: 01700123456 -> 017XX-XXX456.
@@ -1686,6 +1797,255 @@ export const Actions = {
       await setSetting(ctx, "admin_passcode", args.newPasscode);
       ctx.invalidateQueries();
       return { configured: true, alreadySet: false };
+    },
+  }),
+
+  // ---------------- Facebook group posting (/poster) ----------------
+  // Poster accounts: the poster signs up with their own name/phone/
+  // password and CAN log in, but sees no task until an admin approves
+  // them — posterGet throws while status is 'pending'/'rejected', and
+  // the client shows "waiting for admin approval" instead.
+
+  posterSignup: defineAction({
+    privileged: CRYPTO_PRIVILEGED,
+    description: "Registers a poster account: name, phone and password. The account starts 'pending' — the poster can log in but sees no task until an admin approves them. Returns the public profile plus a login token.",
+    request: z.object({
+      name: z.string().trim().min(2, "আপনার নাম লিখুন").max(60),
+      phone: phoneSchema,
+      password: z.string().min(6, "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে").max(100),
+    }),
+    response: z.object({ poster: posterProfileShape, token: z.string() }),
+    async handler(ctx, args) {
+      const db = ctx.db<typeof schema>();
+      const existing = await db
+        .select({ id: schema.posters.id })
+        .from(schema.posters)
+        .where(eq(schema.posters.phone, args.phone))
+        .limit(1);
+      if (existing[0]) {
+        throw new Error("এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট আছে — লগইন করুন");
+      }
+      const { hash, salt } = await hashPassword(ctx, args.password);
+      const result = await db
+        .insert(schema.posters)
+        .values({ name: args.name, phone: args.phone, passwordHash: hash, passwordSalt: salt })
+        .returning();
+      const row = result[0];
+      if (!row) throw new Error("অ্যাকাউন্ট তৈরি হয়নি — আবার চেষ্টা করুন");
+      const token = await createPosterSession(ctx, row.id);
+      ctx.invalidateQueries();
+      return { poster: toPosterProfile(row), token };
+    },
+  }),
+
+  posterLogin: defineAction({
+    privileged: CRYPTO_PRIVILEGED,
+    description: "Logs a poster in with phone and password. Login works even while the account is still pending approval — the task itself stays hidden until approval. Returns the public profile plus a login token.",
+    request: z.object({
+      phone: phoneSchema,
+      password: z.string().min(1).max(100),
+    }),
+    response: z.object({ poster: posterProfileShape, token: z.string() }),
+    async handler(ctx, args) {
+      const db = ctx.db<typeof schema>();
+      const rows = await db
+        .select()
+        .from(schema.posters)
+        .where(eq(schema.posters.phone, args.phone))
+        .limit(1);
+      const row = rows[0];
+      if (!row || !(await verifyPassword(ctx, args.password, row.passwordHash, row.passwordSalt))) {
+        throw new Error("মোবাইল নম্বর বা পাসওয়ার্ড ভুল — আবার চেষ্টা করুন");
+      }
+      const token = await createPosterSession(ctx, row.id);
+      return { poster: toPosterProfile(row), token };
+    },
+  }),
+
+  posterMe: defineAction({
+    description: "Returns the logged-in poster's public profile (including approval status) for a session token.",
+    request: z.object({ token: z.string().min(1).max(200) }),
+    response: z.object({ poster: posterProfileShape }),
+    async handler(ctx, args) {
+      const row = await resolvePoster(ctx, args.token);
+      if (!row) throw new Error("সেশন শেষ হয়ে গেছে — আবার লগইন করুন");
+      return { poster: toPosterProfile(row) };
+    },
+  }),
+
+  posterGet: defineAction({
+    description: "Returns the posting task for an approved poster: the post text, the group list in order, and done/total counts. Throws while the poster is still waiting for admin approval.",
+    request: z.object({ token: z.string().min(1).max(200) }),
+    response: z.object({
+      postText: z.string(),
+      groups: z.array(posterGroupShape),
+      doneCount: z.number(),
+      totalCount: z.number(),
+    }),
+    async handler(ctx, args) {
+      return approvedPosterTask(ctx, args.token);
+    },
+  }),
+
+  posterComplete: defineAction({
+    description: "Marks one Facebook group done for an approved poster (idempotent).",
+    request: z.object({
+      token: z.string().min(1).max(200),
+      groupId: z.number().int().positive(),
+    }),
+    response: z.object({
+      ok: z.literal(true),
+      groups: z.array(posterGroupShape),
+      doneCount: z.number(),
+      totalCount: z.number(),
+    }),
+    async handler(ctx, args) {
+      await approvedPosterTask(ctx, args.token);
+      const db = ctx.db<typeof schema>();
+      await db
+        .update(schema.posterGroups)
+        .set({ done: 1, doneAt: new Date() })
+        .where(eq(schema.posterGroups.id, args.groupId));
+      const groups = await listPosterGroups(ctx);
+      ctx.invalidateQueries();
+      return {
+        ok: true as const,
+        groups,
+        doneCount: groups.filter((g) => g.done).length,
+        totalCount: groups.length,
+      };
+    },
+  }),
+
+  adminPosterList: defineAction({
+    description: "Admin: returns the post text and the full group list (including done state) for the group-posting manager.",
+    request: z.object({ passcode: z.string().min(1).max(60) }),
+    response: z.object({ postText: z.string(), groups: z.array(posterGroupShape) }),
+    async handler(ctx, args) {
+      await checkPasscode(ctx, args.passcode);
+      return {
+        postText: await getSetting(ctx, "poster_post_text"),
+        groups: await listPosterGroups(ctx),
+      };
+    },
+  }),
+
+  adminPosterSetText: defineAction({
+    description: "Admin: saves the post text the poster copies into each Facebook group.",
+    request: z.object({
+      passcode: z.string().min(1).max(60),
+      text: z.string().max(5000),
+    }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      await checkPasscode(ctx, args.passcode);
+      await setSetting(ctx, "poster_post_text", args.text);
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
+  adminPosterAddGroup: defineAction({
+    description: "Admin: adds a Facebook group (name + group URL) to the posting list.",
+    request: z.object({
+      passcode: z.string().min(1).max(60),
+      name: z.string().trim().min(1, "গ্রুপের নাম লিখুন").max(120),
+      url: z.string().trim().min(1, "সঠিক গ্রুপের লিংক দিন").max(500),
+    }),
+    response: z.object({ ok: z.literal(true), id: z.number() }),
+    async handler(ctx, args) {
+      await checkPasscode(ctx, args.passcode);
+      if (!/^https?:\/\/.{4,500}$/.test(args.url)) throw new Error("সঠিক গ্রুপের লিংক দিন");
+      const db = ctx.db<typeof schema>();
+      const rows = await db.select().from(schema.posterGroups).orderBy(desc(schema.posterGroups.sortOrder)).limit(1);
+      const order = (rows[0]?.sortOrder ?? 0) + 1;
+      const result = await db
+        .insert(schema.posterGroups)
+        .values({ name: args.name, url: args.url, sortOrder: order })
+        .returning({ id: schema.posterGroups.id });
+      ctx.invalidateQueries();
+      return { ok: true as const, id: result[0]?.id ?? 0 };
+    },
+  }),
+
+  adminPosterDeleteGroup: defineAction({
+    description: "Admin: removes a group from the posting list.",
+    request: z.object({
+      passcode: z.string().min(1).max(60),
+      id: z.number().int().positive(),
+    }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      await checkPasscode(ctx, args.passcode);
+      const db = ctx.db<typeof schema>();
+      await db.delete(schema.posterGroups).where(eq(schema.posterGroups.id, args.id));
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
+  adminPosterReset: defineAction({
+    description: "Admin: marks every group not-done again (restarts the posting run).",
+    request: z.object({ passcode: z.string().min(1).max(60) }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      await checkPasscode(ctx, args.passcode);
+      const db = ctx.db<typeof schema>();
+      await db.update(schema.posterGroups).set({ done: 0, doneAt: null });
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
+  adminPosterListAccounts: defineAction({
+    description: "Admin: lists poster accounts (name, phone, approval status) for approval.",
+    request: z.object({ passcode: z.string().min(1).max(60) }),
+    response: z.object({ posters: z.array(posterProfileShape) }),
+    async handler(ctx, args) {
+      await checkPasscode(ctx, args.passcode);
+      const db = ctx.db<typeof schema>();
+      const rows = await db
+        .select()
+        .from(schema.posters)
+        .orderBy(desc(schema.posters.createdAt));
+      return { posters: rows.map(toPosterProfile) };
+    },
+  }),
+
+  adminPosterSetAccountStatus: defineAction({
+    description: "Admin: approves, rejects, or re-pends a poster account.",
+    request: z.object({
+      passcode: z.string().min(1).max(60),
+      id: z.number().int().positive(),
+      status: posterStatusEnum,
+    }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      await checkPasscode(ctx, args.passcode);
+      const db = ctx.db<typeof schema>();
+      await db
+        .update(schema.posters)
+        .set({ status: args.status, updatedAt: new Date() })
+        .where(eq(schema.posters.id, args.id));
+      ctx.invalidateQueries();
+      return { ok: true };
+    },
+  }),
+
+  adminPosterDeleteAccount: defineAction({
+    description: "Admin: deletes a poster account and its sessions.",
+    request: z.object({
+      passcode: z.string().min(1).max(60),
+      id: z.number().int().positive(),
+    }),
+    response: okResponse,
+    async handler(ctx, args): Promise<z.infer<typeof okResponse>> {
+      await checkPasscode(ctx, args.passcode);
+      const db = ctx.db<typeof schema>();
+      await db.delete(schema.posterSessions).where(eq(schema.posterSessions.posterId, args.id));
+      await db.delete(schema.posters).where(eq(schema.posters.id, args.id));
+      ctx.invalidateQueries();
+      return { ok: true };
     },
   }),
 

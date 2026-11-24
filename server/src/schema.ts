@@ -197,3 +197,51 @@ export const chatMessages = sqliteTable("chat_messages", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+// Facebook group posting (/poster).
+// posterGroups — the admin's group list: one row per Facebook group, in
+//   sort_order. done/doneAt track the poster's progress through the list.
+// posters — poster accounts. The poster signs up with their own
+//   name/phone/password; status starts 'pending' and only an admin
+//   approval ('approved') makes the posting task visible. 'rejected'
+//   means the admin turned the account down.
+// posterSessions — login tokens (crypto-random, 30-day expiry), same
+//   shape as tutorSessions.
+export const posterGroups = sqliteTable("poster_groups", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  done: integer("done").notNull().default(0),
+  doneAt: integer("done_at", { mode: "timestamp_ms" }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const posters = sqliteTable("posters", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  phone: text("phone").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  passwordSalt: text("password_salt").notNull(),
+  status: text("status", { enum: ["pending", "approved", "rejected"] })
+    .notNull()
+    .default("pending"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const posterSessions = sqliteTable("poster_sessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  token: text("token").notNull().unique(),
+  posterId: integer("poster_id").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
