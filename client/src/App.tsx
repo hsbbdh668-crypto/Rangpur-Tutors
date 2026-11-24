@@ -2771,6 +2771,38 @@ function CommissionEditor({
    also has a small "পোস্ট হয়েছে" control that marks that group done
    for the admin's done/remaining tracking. */
 
+// Copy helper: Clipboard API first, then the synchronous textarea +
+// execCommand fallback for mobile browsers where the async API fails
+// (older WebViews, non-secure contexts, or after the page loses
+// focus). Returns true only when the text is actually on the
+// clipboard.
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // fall through to the fallback below
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "0";
+    ta.style.left = "0";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 function PosterPanel() {
   const { lang, t, setLang } = useLang();
   const queryClient = useQueryClient();
@@ -2858,20 +2890,27 @@ function PosterPanel() {
 
   const task = taskQuery.data;
 
-  // One click does BOTH: window.open FIRST (synchronously, so popup
-  // blockers let it through), then the clipboard copy. The button
-  // never disappears — the "কপি হয়েছে" mark stays on this group
-  // until another group is copied.
+  // One click does BOTH: copy FIRST, then open the group. Copying
+  // first matters — once window.open runs, the page loses focus (on
+  // phones the browser jumps to the Facebook app/tab) and the
+  // clipboard write fails because it needs the user gesture and a
+  // focused document. The "কপি হয়েছে" mark is set only when the
+  // copy really succeeded. The button never disappears — the mark
+  // stays on this group until another group is copied.
   const openGroup = async (g: PosterGroup) => {
-    window.open(g.url, "_blank", "noopener,noreferrer");
     setCopyFailedGroupId(null);
-    if (!task?.postText) return;
-    try {
-      await navigator.clipboard.writeText(task.postText);
-      setCopiedGroupId(g.id);
-    } catch {
+    if (task?.postText) {
+      const copied = await copyText(task.postText);
+      if (copied) {
+        setCopiedGroupId(g.id);
+      } else {
+        if (copiedGroupId === g.id) setCopiedGroupId(null);
+        setCopyFailedGroupId(g.id);
+      }
+    } else {
       setCopyFailedGroupId(g.id);
     }
+    window.open(g.url, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -3019,20 +3058,16 @@ function PosterPanel() {
                 <button
                   type="button"
                   onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(task.postText);
-                      setTextCopied(true);
-                      setTextCopyFailed(false);
-                    } catch {
-                      setTextCopyFailed(true);
-                    }
+                    const ok = await copyText(task.postText);
+                    setTextCopied(ok);
+                    setTextCopyFailed(!ok);
                   }}
                   className="rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]"
                 >
                   {t("posterCopyTextBtn")}
                 </button>
               </div>
-              <p className="whitespace-pre-wrap text-sm text-[var(--text)]">{task.postText}</p>
+              <p className="select-text whitespace-pre-wrap text-sm text-[var(--text)]">{task.postText}</p>
               {textCopied ? <p className="mt-2 text-sm font-semibold text-[var(--accent-strong)]">{t("posterCopiedMsg")}</p> : null}
               {textCopyFailed ? <p className="mt-2 text-sm text-[var(--danger)]">{t("posterCopyFailMsg")}</p> : null}
             </div>
