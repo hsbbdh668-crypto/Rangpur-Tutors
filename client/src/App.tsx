@@ -2763,9 +2763,13 @@ function CommissionEditor({
    header/board/footer/chat. The poster signs up with their own
    name/phone/password and CAN log in, but sees NO task until an admin
    approves the account — until then they only see the waiting message.
-   Approved posters see the groups one at a time; one click on Open
-   copies the post text AND opens the group's Facebook URL, then
-   "পোস্ট হয়েছে" marks that group done and shows the next one. */
+   Approved posters see ALL groups at once, each with its own
+   "কপি ও খুলুন" button: one click opens the group's Facebook URL
+   AND copies the post text. The button never disappears — any group
+   can be posted any time, as many times as wanted. After a copy that
+   button shows "কপি হয়েছে" until another group is copied. Each row
+   also has a small "পোস্ট হয়েছে" control that marks that group done
+   for the admin's done/remaining tracking. */
 
 function PosterPanel() {
   const { lang, t, setLang } = useLang();
@@ -2779,8 +2783,12 @@ function PosterPanel() {
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [taskError, setTaskError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
+  // Which group's button currently shows "কপি হয়েছে" — it stays there
+  // until another group is copied (no timer; a refresh clears it).
+  const [copiedGroupId, setCopiedGroupId] = useState<number | null>(null);
+  const [copyFailedGroupId, setCopyFailedGroupId] = useState<number | null>(null);
+  const [textCopied, setTextCopied] = useState(false);
+  const [textCopyFailed, setTextCopyFailed] = useState(false);
 
   // Restore the session from the saved token (and re-check the approval
   // status when the poster taps "check status again").
@@ -2842,26 +2850,27 @@ function PosterPanel() {
     localStorage.removeItem(POSTER_TOKEN_KEY);
     setToken("");
     setPoster(null);
-    setCopied(false);
-    setCopyFailed(false);
+    setCopiedGroupId(null);
+    setCopyFailedGroupId(null);
+    setTextCopied(false);
+    setTextCopyFailed(false);
   };
 
   const task = taskQuery.data;
-  const current = task?.groups.find((g) => !g.done) ?? null;
-  const allDone = !!task && task.totalCount > 0 && task.doneCount >= task.totalCount;
 
   // One click does BOTH: window.open FIRST (synchronously, so popup
-  // blockers let it through), then the clipboard copy.
+  // blockers let it through), then the clipboard copy. The button
+  // never disappears — the "কপি হয়েছে" mark stays on this group
+  // until another group is copied.
   const openGroup = async (g: PosterGroup) => {
     window.open(g.url, "_blank", "noopener,noreferrer");
-    setCopied(false);
-    setCopyFailed(false);
+    setCopyFailedGroupId(null);
     if (!task?.postText) return;
     try {
       await navigator.clipboard.writeText(task.postText);
-      setCopied(true);
+      setCopiedGroupId(g.id);
     } catch {
-      setCopyFailed(true);
+      setCopyFailedGroupId(g.id);
     }
   };
 
@@ -3012,10 +3021,10 @@ function PosterPanel() {
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(task.postText);
-                      setCopied(true);
-                      setCopyFailed(false);
+                      setTextCopied(true);
+                      setTextCopyFailed(false);
                     } catch {
-                      setCopyFailed(true);
+                      setTextCopyFailed(true);
                     }
                   }}
                   className="rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]"
@@ -3024,8 +3033,8 @@ function PosterPanel() {
                 </button>
               </div>
               <p className="whitespace-pre-wrap text-sm text-[var(--text)]">{task.postText}</p>
-              {copied ? <p className="mt-2 text-sm font-semibold text-[var(--accent-strong)]">{t("posterCopiedMsg")}</p> : null}
-              {copyFailed ? <p className="mt-2 text-sm text-[var(--danger)]">{t("posterCopyFailMsg")}</p> : null}
+              {textCopied ? <p className="mt-2 text-sm font-semibold text-[var(--accent-strong)]">{t("posterCopiedMsg")}</p> : null}
+              {textCopyFailed ? <p className="mt-2 text-sm text-[var(--danger)]">{t("posterCopyFailMsg")}</p> : null}
             </div>
           ) : (
             <p className="mb-4 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--dim)]">
@@ -3033,37 +3042,54 @@ function PosterPanel() {
             </p>
           )}
 
-          {allDone ? (
-            <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
-              <IconCheckCircle className="mx-auto mb-2 h-10 w-10 text-[var(--accent-strong)]" />
-              <h2 className="mb-1 text-lg font-bold text-[var(--text)]">{t("posterAllDoneTitle")}</h2>
-              <p className="text-sm text-[var(--dim)]">{t("posterAllDoneBody")}</p>
-            </div>
-          ) : current ? (
-            <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="text-base font-bold text-[var(--text)]">{current.name}</h2>
-                <span className="rounded-full bg-[var(--surface-2)] px-2.5 py-0.5 text-xs font-semibold text-[var(--dim)]">
-                  {t("posterGroupPendingChip")}
-                </span>
-              </div>
-              <p className="mb-3 break-all text-xs text-[var(--dim)]">{current.url}</p>
-              <button
-                type="button"
-                onClick={() => void openGroup(current)}
-                className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 font-bold text-white"
-              >
-                <IconExternal className="h-5 w-5" /> {t("posterOpenBtn")}
-              </button>
-              <button
-                type="button"
-                disabled={completeMutation.isPending}
-                onClick={() => completeMutation.mutate(current.id)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--accent)] px-4 py-3 font-bold text-[var(--accent-strong)] disabled:opacity-60"
-              >
-                <IconCheck className="h-5 w-5" /> {t("posterDoneBtn")}
-              </button>
-              {taskError ? <p className="mt-2 text-sm text-[var(--danger)]">{taskError}</p> : null}
+          {task.groups.length > 0 ? (
+            <div className="space-y-2">
+              {task.groups.map((g) => {
+                const justCopied = copiedGroupId === g.id;
+                return (
+                  <div
+                    key={g.id}
+                    className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-3"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h2 className="min-w-0 truncate text-sm font-bold text-[var(--text)]">{g.name}</h2>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          g.done ? "bg-[var(--surface-2)] text-[var(--accent-strong)]" : "bg-[var(--surface-2)] text-[var(--dim)]"
+                        }`}
+                      >
+                        {g.done ? t("posterGroupDoneChip") : t("posterGroupPendingChip")}
+                      </span>
+                    </div>
+                    <p className="mb-3 break-all text-xs text-[var(--dim)]">{g.url}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void openGroup(g)}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-bold text-white ${
+                          justCopied ? "bg-[var(--accent-strong)]" : "bg-[var(--accent)]"
+                        }`}
+                      >
+                        {justCopied ? <IconCheck className="h-5 w-5" /> : <IconExternal className="h-5 w-5" />}
+                        {justCopied ? t("posterCopiedBtn") : t("posterCopyOpenBtn")}
+                      </button>
+                      {g.done ? null : (
+                        <button
+                          type="button"
+                          disabled={completeMutation.isPending}
+                          onClick={() => completeMutation.mutate(g.id)}
+                          className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--accent)] px-3 py-2.5 text-sm font-bold text-[var(--accent-strong)] disabled:opacity-60"
+                        >
+                          <IconCheck className="h-4 w-4" /> {t("posterDoneBtn")}
+                        </button>
+                      )}
+                    </div>
+                    {copyFailedGroupId === g.id ? (
+                      <p className="mt-2 text-sm text-[var(--danger)]">{t("posterCopyFailMsg")}</p>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
@@ -3071,26 +3097,7 @@ function PosterPanel() {
               <p className="text-sm text-[var(--dim)]">{t("posterNoGroupsBody")}</p>
             </div>
           )}
-
-          {task.groups.length > 0 ? (
-            <div className="mt-4 space-y-2">
-              {task.groups.map((g) => (
-                <div
-                  key={g.id}
-                  className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
-                >
-                  <span className="truncate text-sm font-semibold text-[var(--text)]">{g.name}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      g.done ? "bg-[var(--surface-2)] text-[var(--accent-strong)]" : "bg-[var(--surface-2)] text-[var(--dim)]"
-                    }`}
-                  >
-                    {g.done ? t("posterGroupDoneChip") : t("posterGroupPendingChip")}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          {taskError ? <p className="mt-3 text-sm text-[var(--danger)]">{taskError}</p> : null}
         </div>
       ) : null}
     </div>
